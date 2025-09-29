@@ -1,7 +1,5 @@
 import torch
 
-import params
-
 torch_dtype = torch.float16
 GPU = 0
 SAMPLING_RATE = 16000
@@ -57,10 +55,10 @@ laci_dys_dir = "/home/berta/data/LaciDys2025/"
 #laci_dys_dir = "LaciDys"
 processed_paths = {}
 for key in speakers_dict :
-    processed_paths[key] = "/home/berta/data/" + params.dataset + "/processed_" + key + ".pt"
-processed_paths[TRAIN_SPEAKERS] = "/home/berta/data/" + params.dataset + "/processed_train.pt"
-processed_paths[TEST_SPEAKERS] = "/home/berta/data/" + params.dataset + "/processed_test.pt"
-processed_paths[TEST_DYSARTHRIC_SPEAKERS] = "/home/berta/data/" + params.dataset + "/processed_test_dspks.pt"
+    processed_paths[key] = "/home/berta/data/" + dataset + "/processed_" + key + ".pt"
+processed_paths[TRAIN_SPEAKERS] = "/home/berta/data/" + dataset + "/processed_train.pt"
+processed_paths[TEST_SPEAKERS] = "/home/berta/data/" + dataset + "/processed_test.pt"
+processed_paths[TEST_DYSARTHRIC_SPEAKERS] = "/home/berta/data/" + dataset + "/processed_test_dspks.pt"
 
 hirado_dir = "/home/berta/data/hirado/"
 whisper_arch = "openai/whisper-large-v3"
