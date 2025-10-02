@@ -3,6 +3,11 @@ import torch
 torch_dtype = torch.float16
 GPU = 0
 SAMPLING_RATE = 16000
+SAMPLE_RATE = 16000
+N_FFT = 400
+HOP_LENGTH = 160
+CHUNK_LENGTH = 30
+CHUNK_SAMPLES = CHUNK_LENGTH * SAMPLE_RATE  # 480000 samples in a 30-second chunk
 
 ALL_SPEAKERS = "all_spks"
 ALL_DYSARTHRIC_SPEAKERS = "all_dys_spks"
@@ -22,10 +27,6 @@ LACIDYS = "LaciDys"
 SZEGEDYS = "SzegedDys"
 SZINDBAD = "Szindbad"
 BEA = "bea"
-
-CHUNK_LENGTH = 3000000
-CHUNK_LENGTH_FEATURE = 10000
-OVERLAP = 0
 
 speakers_dict = {
     ALL_SPEAKERS: ["M09", "M14", "M10", "M08", "F05", "M05", "M11", "F04", "M07", "F02", "M16", "M04", "F03", "M12", "M01",

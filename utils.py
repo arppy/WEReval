@@ -2,11 +2,7 @@ import os
 from pathlib import Path
 import numpy as np
 import torch
-import params
 import torchaudio
-import torch.nn.functional as F
-from typing import Optional, Union
-from subprocess import CalledProcessError, run
 import evaluate
 import inflect
 from dataclasses import dataclass
@@ -15,12 +11,9 @@ from datasets import Dataset, DatasetDict, Audio, load_from_disk, load_dataset
 from torchaudio.transforms import SpeedPerturbation
 from jiwer import wer, cer, Compose, RemovePunctuation, ToLowerCase, RemoveWhiteSpace, RemoveMultipleSpaces
 
+import params
+
 metric = evaluate.load("wer")
-SAMPLE_RATE = 16000
-N_FFT = 400
-HOP_LENGTH = 160
-CHUNK_LENGTH = 30
-N_SAMPLES = CHUNK_LENGTH * SAMPLE_RATE  # 480000 samples in a 30-second chunk
 inflect_engine = inflect.engine()
 
 # Custom transformation to convert numbers to words
@@ -115,14 +108,13 @@ def prepare_Torgo_dataset(batch, feature_extractor, tokenizer=None, augmentor=No
         batch["labels"] = tokenizer(batch['sentence']).input_ids
     return batch
 
-def load_dataset_for_ASR(dataset_string, speakers, dataset_dir=Path(), fn_kwargs=None, forced_recreate=False) :
+def load_dataset_for_ASR_without_prepare(dataset_string, speakers, dataset_dir=Path(), forced_recreate=False) :
     if os.path.exists(params.processed_paths[speakers]) and not forced_recreate:
         dataset = load_from_disk(params.processed_paths[speakers])
     else :
         if dataset_string is params.TORGO:
             dataset = load_dataset("abnerh/TORGO-database", download_mode="reuse_cache_if_exists")["train"]
             dataset = dataset.filter(filter_Torgo_dataset)
-            dataset = dataset.map(prepare_Torgo_dataset, fn_kwargs=fn_kwargs, remove_columns=["audio"])
         else :
             if dataset_string is params.UASPEECH :
                 file_paths, texts, labels = get_UASpeech_as_list(params.speakers_dict[speakers], params.uaspeech_dir)
@@ -138,10 +130,15 @@ def load_dataset_for_ASR(dataset_string, speakers, dataset_dir=Path(), fn_kwargs
                 file_paths, texts, labels = get_SzegedDys_as_list(dataset_dir)
             dataset = Dataset.from_dict({"audio": file_paths, "severity": labels, "sentence": texts}).cast_column("audio",
                 Audio(sampling_rate=params.SAMPLING_RATE))
-            dataset = dataset.map(prepare_dataset_from_disk, fn_kwargs=fn_kwargs, remove_columns=["audio"])
-        #dataset.save_to_disk(params.processed_paths[speakers])  # Save for future
     return dataset
 
+def load_dataset_for_ASR(dataset_string, speakers, dataset_dir=Path(), fn_kwargs=None, forced_recreate=False) :
+    dataset = load_dataset_for_ASR_without_prepare(dataset_string, speakers, dataset_dir, forced_recreate)
+    if dataset_string is params.TORGO and (not os.path.exists(params.processed_paths[speakers]) or forced_recreate) :
+        dataset = dataset.map(prepare_Torgo_dataset, fn_kwargs=fn_kwargs, remove_columns=["audio"])
+    else :
+        dataset = dataset.map(prepare_dataset_from_disk, fn_kwargs=fn_kwargs, remove_columns=["audio"])
+    return dataset
 
 def get_LaciControl_as_list(data_dir) :
     texts = []

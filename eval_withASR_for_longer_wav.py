@@ -13,7 +13,7 @@ from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
 from accelerate import Accelerator
 
 import params
-from utils import load_dataset_for_ASR, DataCollatorSpeechSeq2SeqWithPadding
+from utils import load_dataset_for_ASR_without_prepare
 
 accelerator = Accelerator()
 DEVICE = accelerator.device
@@ -46,10 +46,8 @@ fn_kwargs = {"feature_extractor":  processor.feature_extractor,
 
 #dataset_train = load_UASpeech_dataset(params.TRAIN_SPEAKERS, fn_kwargs)
 #dataset_test = load_UASpeech_dataset(params.TEST_SPEAKERS, fn_kwargs)
-dataset_testds = load_dataset_for_ASR(params.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, fn_kwargs, True)
+dataset_testds = load_dataset_for_ASR_without_prepare(params.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, True)
 #test_loader = torch.utils.data.DataLoader(dataset, batch_size=params.per_device_train_batch_size)
-
-data_collator = DataCollatorSpeechSeq2SeqWithPadding(processor=processor, decoder_start_token_id=model.config.decoder_start_token_id)
 
 metric_wer = evaluate.load("wer")
 metric_cer = evaluate.load("cer")
@@ -69,21 +67,47 @@ for i in range(params.label_count[params.dataset]) :
 i = 0
 j = 0
 with open('transcriptions_'+params.dataset+'_testdys.txt', 'w') as file, open('expected_texts_'+params.dataset+'.txt', 'w') as expected_file:
-    for test_record in dataset_testds:
-        collated_test_record = data_collator([test_record])
-        input_features = collated_test_record["input_features"].to(params.torch_dtype).to(DEVICE)
-        pred = model.generate(input_features)
+    for idx, test_record in enumerate(dataset_testds):
+        audio_array = test_record["audio"]["array"]
+        orig_sr = test_record["audio"]["sampling_rate"]
+        reference_text = test_record["sentence"]
+        severity = test_record["severity"]
 
-        pred_ids = pred[0]
-        label_ids = collated_test_record['labels'].to(DEVICE)
+        total_samples = len(audio_array)
+        num_chunks = int(np.ceil(total_samples / params.CHUNK_SAMPLES))
 
-        # replace -100 with the pad_token_id
-        label_ids[label_ids == -100] = processor.tokenizer.pad_token_id
-        label_ids = label_ids[0]
+        chunk_predictions = []
 
-        # we do not want to group tokens when computing the metrics
-        pred_str = normalizer(processor.tokenizer.decode(pred_ids, skip_special_tokens=True))
-        label_str = normalizer(processor.tokenizer.decode(label_ids, skip_special_tokens=True))
+        for i in range(num_chunks):
+            start = i * params.CHUNK_SAMPLES
+            end = start + params.CHUNK_SAMPLES
+            chunk = audio_array[start:end]
+
+            # ✅ Pad with silence (zeros) if shorter than 30s
+            if len(chunk) < params.CHUNK_SAMPLES:
+                padding = np.zeros(params.CHUNK_SAMPLES - len(chunk), dtype=chunk.dtype)
+                chunk = np.concatenate([chunk, padding])
+
+            # Now chunk is guaranteed to be exactly 30s
+            assert len(chunk) == params.CHUNK_SAMPLES, f"Chunk {i} has {len(chunk)} samples!"
+
+            # Process with Whisper
+            input_features = processor(
+                chunk,
+                sampling_rate=params.SAMPLING_RATE,
+                return_tensors="pt"
+            ).input_features.to(params.torch_dtype).to(DEVICE)
+
+            with torch.no_grad():
+                pred_ids = model.generate(input_features)[0]
+
+            pred_str = processor.tokenizer.decode(pred_ids, skip_special_tokens=True)
+            pred_str = normalizer(pred_str)
+            chunk_predictions.append(pred_str)
+
+        # Concatenate all predictions
+        pred_str = " ".join(chunk_predictions).strip()
+        label_str = normalizer(reference_text)
 
         lab = test_record['severity']
 
