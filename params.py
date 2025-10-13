@@ -25,6 +25,7 @@ TORGO_GENERATED = "TorgoGenerated"
 LACICON = "LaciControl"
 LACIDYS = "LaciDys"
 SZEGEDYS = "SzegedDys"
+HUNDYS = "HunDys"
 SZINDBAD = "Szindbad"
 BEA = "bea"
 
@@ -53,6 +54,7 @@ laci_control_dir = "/home/berta/data/LaciControl2018/"
 szindbad_dir = "/home/berta/data/Szindbad/"
 bea_dir = "/home/berta/data/bea_wav_original/"
 laci_dys_dir = "/home/berta/data/LaciDys2025/"
+hundys_dir = "/home/berta/data/HungarianDysartriaDatabase/wav"
 #laci_dys_dir = "LaciDys"
 processed_paths = {}
 for key in speakers_dict :

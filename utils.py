@@ -128,6 +128,8 @@ def load_dataset_for_ASR_without_prepare(dataset_string, speakers, dataset_dir=P
                 file_paths, texts, labels = get_LaciDys_as_list(dataset_dir_final)
             elif dataset_string is params.SZEGEDYS:
                 file_paths, texts, labels = get_SzegedDys_as_list(dataset_dir)
+            elif dataset_string is params.HUNDYS:
+                file_paths, texts, labels = get_HunDys_as_list(dataset_dir)
             dataset = Dataset.from_dict({"audio": file_paths, "severity": labels, "sentence": texts}).cast_column("audio",
                 Audio(sampling_rate=params.SAMPLING_RATE))
     return dataset
@@ -238,6 +240,34 @@ def get_LaciDys_as_list(data_dir) :
                         text = text.replace(wrong_char, correct_char)
                 texts.append(text)
                 labels.append(3)
+    return file_paths, texts, labels
+
+def get_HunDys_as_list(wav_directory_path=Path(params.hundys_dir)) :
+    text_directory_path = wav_directory_path.parent / "text"
+    texts = []
+    labels = []
+    file_paths = []
+    for path_file_wav in wav_directory_path.iterdir():
+        label = int(path_file_wav.stem.split("_")[1])-1
+        text_filename = path_file_wav.stem+".txt"
+        path_file_text = text_directory_path / text_filename
+        file_paths.append(str(path_file_wav))
+        try :
+            with open(path_file_text, 'r', encoding='utf-8') as file:
+                text = str(file.read().rstrip('\n').capitalize())
+        except UnicodeDecodeError :
+            with open(path_file_text, 'r', encoding='latin-1') as file:
+                text = str(file.read().rstrip('\n').capitalize())
+            char_fixes = {
+                'û': 'ű', 'õ': 'ő',
+                'ã': 'á', 'â': 'á', 'ê': 'é', 'î': 'í', 'ô': 'ó',
+                'Û': 'Ű', 'Õ': 'Ő',
+                'Ã': 'Á', 'Â': 'Á', 'Ê': 'É', 'Î': 'Í', 'Ô': 'Ó',
+            }
+            for wrong_char, correct_char in char_fixes.items():
+                text = text.replace(wrong_char, correct_char)
+        texts.append(text)
+        labels.append(label)
     return file_paths, texts, labels
 
 def get_SzegedDys_as_list(wav_directory_path) :
