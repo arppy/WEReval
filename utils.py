@@ -243,6 +243,8 @@ def get_LaciDys_as_list(data_dir) :
     return file_paths, texts, labels
 
 def get_HunDys_as_list(wav_directory_path=Path(params.hundys_dir)) :
+    if isinstance(wav_directory_path, str):
+        wav_directory_path = Path(wav_directory_path)
     text_directory_path = wav_directory_path.parent / "text"
     texts = []
     labels = []
