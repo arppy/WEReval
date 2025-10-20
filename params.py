@@ -39,9 +39,9 @@ speakers_dict[TEST_SPEAKERS] = [item for item in speakers_dict[ALL_SPEAKERS] if 
 speakers_dict[TEST_CONTROL_SPEAKERS] = [spk for spk in speakers_dict[ALL_SPEAKERS] if spk.startswith("C") and spk not in speakers_dict[TRAIN_SPEAKERS]]
 speakers_dict[TEST_DYSARTHRIC_SPEAKERS] = [spk for spk in speakers_dict[ALL_SPEAKERS] if not spk.startswith("C") and spk not in speakers_dict[TRAIN_SPEAKERS]]
 
-dataset = LACICON
+dataset = HUNDYS
 #dataset = "hirado"
-hungarian_datasets = {HIRADO, LACICON, LACIDYS}
+hungarian_datasets = {HIRADO, LACICON, LACIDYS, SZEGEDYS, HUNDYS, SZINDBAD, BEA}
 if dataset in hungarian_datasets :
     lang = "hu"
 else :
