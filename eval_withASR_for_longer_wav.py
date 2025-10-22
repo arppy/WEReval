@@ -115,8 +115,8 @@ with open('transcriptions_'+params.dataset+'_testdys.txt', 'w') as file, open('e
 
         lab = test_record['severity']
 
-        char_N = len(sentence.replace(" ", ""))
-        word_N = len(sentence.split())
+        char_N = len(pred_str.replace(" ", ""))
+        word_N = len(pred_str.split())
 
         all_transcriptions_str_per_class[lab] += " " + pred_str
         all_expects_str_per_class[lab] += " " + label_str
