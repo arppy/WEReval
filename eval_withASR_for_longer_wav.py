@@ -52,14 +52,18 @@ dataset_testds = load_dataset_for_ASR_without_prepare(params.dataset, params.TES
 metric_wer = evaluate.load("wer")
 metric_cer = evaluate.load("cer")
 all_wer_per_class = {}
+all_wN_per_class = {}
 all_cer_per_class = {}
+all_cN_per_class = {}
 average_wer_per_class = []
 average_cer_per_class = []
 all_transcriptions_str_per_class = {}
 all_expects_str_per_class = {}
 for i in range(params.label_count[params.dataset]) :
     all_wer_per_class[i] = []
+    all_wN_per_class[i] = []
     all_cer_per_class[i] = []
+    all_cN_per_class[i] = []
     all_transcriptions_str_per_class[i] = ""
     all_expects_str_per_class[i] = ""
     average_wer_per_class.append(-1)
@@ -111,6 +115,9 @@ with open('transcriptions_'+params.dataset+'_testdys.txt', 'w') as file, open('e
 
         lab = test_record['severity']
 
+        char_N = len(sentence.replace(" ", ""))
+        word_N = len(sentence.split())
+
         all_transcriptions_str_per_class[lab] += " " + pred_str
         all_expects_str_per_class[lab] += " " + label_str
 
@@ -119,27 +126,40 @@ with open('transcriptions_'+params.dataset+'_testdys.txt', 'w') as file, open('e
 
         # Store the WERs for the current batch
         all_wer_per_class[lab].extend([wer])  # Add the current batch's WERs to the list
+        all_wN_per_class[lab].extend([word_N])  # Add the current batch's WERs to the list
         all_cer_per_class[lab].extend([cer])  # Add the current batch's CERs to the list
+        all_cN_per_class[lab].extend([char_N])  # Add the current batch's CERs to the list
         average_wer_per_class[lab] = np.mean(all_wer_per_class[lab])
         average_cer_per_class[lab] = np.mean(all_cer_per_class[lab])
         i += 1
 
-        print(average_wer_per_class, average_cer_per_class)
+        #print(average_wer_per_class, average_cer_per_class)
         # Write each transcription to the file
         file.write(str(j) + ':' + pred_str + '\n')
         expected_file.write(str(j) + ':' + label_str + '\n')
         j += 1
 
 wer_a_list = []
+wer_w_list = []
 cer_a_list = []
-for lab in all_transcriptions_str_per_class.keys() :
+cer_w_list = []
+for lab in range(params.label_count[params.dataset]) :
     if all_transcriptions_str_per_class[lab] != "" :
         wer_a_list.append(metric_wer.compute(predictions=[all_transcriptions_str_per_class[lab]], references=[all_expects_str_per_class[lab]]))
         cer_a_list.append(metric_cer.compute(predictions=[all_transcriptions_str_per_class[lab]], references=[all_expects_str_per_class[lab]]))
+        np_all_wer_per_lab = np.array(all_wer_per_class[lab])
+        np_all_wN_per_lab = np.array(all_wN_per_class[lab])
+        np_all_cer_per_lab = np.array(all_cer_per_class[lab])
+        np_all_cN_per_lab = np.array(all_cN_per_class[lab])
+        wer_w_list.appen(np.average(np_all_wer_per_lab, weights=np_all_wN_per_lab))
+        cer_w_list(np.average(np_all_cer_per_lab, weights=np_all_cN_per_lab))
     else :
         wer_a_list.append(-1.0)
+        wer_w_list.append(-1.0)
         cer_a_list.append(-1.0)
+        cer_w_list.append(-1.0)
 print(wer_a_list, cer_a_list)
+print(wer_w_list, cer_w_list)
 print("final average_wer_per_class")
 print(*average_wer_per_class, sep='\n')
 print("final average_cer_per_class")
@@ -148,3 +168,7 @@ print("global average_wer_per_class")
 print(*wer_a_list, sep='\n')
 print("global average_cer_per_class")
 print(*cer_a_list, sep='\n')
+print("average_wer_per_class")
+print(*wer_w_list, sep='\n')
+print("average_cer_per_class")
+print(*cer_w_list, sep='\n')
