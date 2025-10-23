@@ -1,7 +1,8 @@
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 from pathlib import Path
 import argparse
 import evaluate
+import numpy as np
 
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 
