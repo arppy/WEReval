@@ -43,35 +43,102 @@ for i in range(params.label_count[params.dataset]) :
     all_expects_str_per_class[i] = ""
     average_wer_per_class.append(-1)
     average_cer_per_class.append(-1)
-i = 0
-j = 0
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
     page.goto("https://phon.nytud.hu/beast2")
-    for audio_file in file_paths:
-        # 1. Clear if needed (optional)
-        page.click("#component-4")
+    for i, audio_file in enumerate(file_paths):
+        label_str = normalizer(texts[i])
+        lab = labels[i]
 
-        # 2. Upload
-        page.set_input_files("#component-2 input[type='file']", audio_file)
+        pred_str = None
+        success = False
 
-        # 3. Wait for waveform/duration → upload complete
-        page.wait_for_selector("#component-2 .waveform-container", timeout=30000)
+        for attempt in range(2):  # Try up to 2 times
+            try:
+                # 1. Clear if needed (optional)
+                page.click("#component-4")
+                # 2. Upload
+                page.set_input_files("#component-2 input[type='file']", audio_file)
+                # 3. Wait for waveform/duration → upload complete
+                page.wait_for_selector("#component-2 .waveform-container", timeout=600000)
+                # 4. Now click Run — safe!
+                page.click("#component-5")
+                # Wait until the textarea has non-empty value
+                page.wait_for_function("""
+                    () => {
+                        const textarea = document.querySelector('#component-10 textarea');
+                        return textarea && textarea.value.trim() !== '' && !textarea.value.match(/^\\d+\\.\\d+s$/);
+                    }
+                """, timeout=600000)
+                # Extract the actual value from the textarea
+                result = page.eval_on_selector("#component-10 textarea", "el => el.value")
+                pred_str = normalizer(result.strip())
+                success = True
+                break  # Exit retry loop on success
 
-        # 4. Now click Run — safe!
-        page.click("#component-5")
+            except PlaywrightTimeoutError:
+                print(f"Timeout on {audio_file}, attempt {attempt + 1}/2")
+                if attempt == 0:
+                    # First timeout: retry
+                    continue
+                else:
+                    # Second timeout: give up
+                    print(f"Skipping {audio_file} after 2 timeouts.")
+                    break
 
-        # Wait until the textarea has non-empty value
-        page.wait_for_function("""
-            () => {
-                const textarea = document.querySelector('#component-10 textarea');
-                return textarea && textarea.value.trim() !== '' && !textarea.value.match(/^\\d+\\.\\d+s$/);
-            }
-        """, timeout=60000)
+        if not success or pred_str is None:
+            # Skip WER/CER for this file
+            continue
 
-        # Extract the actual value from the textarea
-        result = page.eval_on_selector("#component-10 textarea", "el => el.value")
-        pred_str = normalizer(result.strip())
-        print(audio_file,result.strip())
+        char_N = len(pred_str.replace(" ", ""))
+        word_N = len(pred_str.split())
+
+        all_transcriptions_str_per_class[lab] += " " + pred_str
+        all_expects_str_per_class[lab] += " " + label_str
+
+        wer = metric_wer.compute(predictions=[pred_str], references=[label_str])
+        cer = metric_cer.compute(predictions=[pred_str], references=[label_str])
+
+        # Store the WERs for the current batch
+        all_wer_per_class[lab].extend([wer])  # Add the current batch's WERs to the list
+        all_wN_per_class[lab].extend([word_N])  # Add the current batch's WERs to the list
+        all_cer_per_class[lab].extend([cer])  # Add the current batch's CERs to the list
+        all_cN_per_class[lab].extend([char_N])  # Add the current batch's CERs to the list
+        average_wer_per_class[lab] = np.mean(all_wer_per_class[lab])
+        average_cer_per_class[lab] = np.mean(all_cer_per_class[lab])
     browser.close()
+
+wer_a_list = []
+wer_w_list = []
+cer_a_list = []
+cer_w_list = []
+for lab in range(params.label_count[params.dataset]) :
+    if all_transcriptions_str_per_class[lab] != "" :
+        wer_a_list.append(metric_wer.compute(predictions=[all_transcriptions_str_per_class[lab]], references=[all_expects_str_per_class[lab]]))
+        cer_a_list.append(metric_cer.compute(predictions=[all_transcriptions_str_per_class[lab]], references=[all_expects_str_per_class[lab]]))
+        np_all_wer_per_lab = np.array(all_wer_per_class[lab])
+        np_all_wN_per_lab = np.array(all_wN_per_class[lab])
+        np_all_cer_per_lab = np.array(all_cer_per_class[lab])
+        np_all_cN_per_lab = np.array(all_cN_per_class[lab])
+        wer_w_list.append(np.average(np_all_wer_per_lab, weights=np_all_wN_per_lab))
+        cer_w_list.append(np.average(np_all_cer_per_lab, weights=np_all_cN_per_lab))
+    else :
+        wer_a_list.append(-1.0)
+        wer_w_list.append(-1.0)
+        cer_a_list.append(-1.0)
+        cer_w_list.append(-1.0)
+print(wer_a_list, cer_a_list)
+print(wer_w_list, cer_w_list)
+print("final average_wer_per_class")
+print(*average_wer_per_class, sep='\n')
+print("final average_cer_per_class")
+print(*average_cer_per_class, sep='\n')
+print("global average_wer_per_class")
+print(*wer_a_list, sep='\n')
+print("global average_cer_per_class")
+print(*cer_a_list, sep='\n')
+print("average_wer_per_class")
+print(*wer_w_list, sep='\n')
+print("average_cer_per_class")
+print(*cer_w_list, sep='\n')
