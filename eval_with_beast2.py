@@ -113,7 +113,7 @@ if to_process:
             else:
                 pred_str = "[TIMEOUT]"
                 wer = cer = -1.0
-                word_count = char_count = 0
+                word_N = char_N = 0
 
             # Update in-memory results
             existing_results[audio_file] = {
@@ -123,8 +123,8 @@ if to_process:
                 "transcription": pred_str,
                 "wer": str(wer),
                 "cer": str(cer),
-                "word_count": str(word_count),
-                "char_count": str(char_count)
+                "word_count": str(word_N),
+                "char_count": str(char_N)
             }
 # ----------------------------
 # STEP 4: OVERWRITE the original file with FULL updated results
