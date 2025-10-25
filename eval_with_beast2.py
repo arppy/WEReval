@@ -118,7 +118,7 @@ if to_process:
             # Update in-memory results
             existing_results[audio_file] = {
                 "file_path": audio_file,
-                "class_label": str(lab),
+                "class_label": int(lab),
                 "expected_text": label_str,
                 "transcription": pred_str,
                 "wer": str(wer),
