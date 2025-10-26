@@ -172,12 +172,13 @@ with open(output_file, mode='w', newline='', encoding='utf-8') as f:
                 row["word_count"],
                 row["char_count"]
             ])
-            all_wer_per_class[row["class_label"]].extend([row["wer"]])  # Add the current batch's WERs to the list
-            all_wN_per_class[row["class_label"]].extend([row["word_count"]])  # Add the current batch's WERs to the list
-            all_cer_per_class[row["class_label"]].extend([row["cer"]])  # Add the current batch's CERs to the list
-            all_cN_per_class[row["class_label"]].extend([row["char_count"]])  # Add the current batch's CERs to the list
-            average_wer_per_class[row["class_label"]] = np.mean(all_wer_per_class[row["class_label"]])
-            average_cer_per_class[row["class_label"]] = np.mean(all_cer_per_class[row["class_label"]])
+            lab = int(row["class_label"])
+            all_wer_per_class[lab].extend([row["wer"]])  # Add the current batch's WERs to the list
+            all_wN_per_class[lab].extend([row["word_count"]])  # Add the current batch's WERs to the list
+            all_cer_per_class[lab].extend([row["cer"]])  # Add the current batch's CERs to the list
+            all_cN_per_class[lab].extend([row["char_count"]])  # Add the current batch's CERs to the list
+            average_wer_per_class[lab] = np.mean(all_wer_per_class[row["class_label"]])
+            average_cer_per_class[lab] = np.mean(all_cer_per_class[row["class_label"]])
 
 wer_w_list = []
 cer_w_list = []
