@@ -61,71 +61,87 @@ print(f"Files to process/retry: {len(to_process)}")
 if to_process:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        page.goto("https://phon.nytud.hu/beast2")
         for audio_file_name in to_process:
             audio_file = str(audio_file_name)
             label_str_orig, lab = file_to_info[audio_file]
             label_str = normalizer(label_str_orig)
-
             pred_str = None
             success = False
+            page = browser.new_page()
+            try:
+                page.goto("https://phon.nytud.hu/beast2")
+                for attempt in range(2):  # Try up to 2 times
+                    try:
+                        # 1. Clear if needed (optional)
+                        page.click("#component-4")
+                        # 2. Upload
+                        page.set_input_files("#component-2 input[type='file']", audio_file)
+                        # 3. Wait for waveform/duration → upload complete
+                        page.wait_for_selector("#component-2 .waveform-container", timeout=600000)
+                        # 4. Now click Run — safe!
+                        page.click("#component-5")
+                        # Wait until the textarea has non-empty value
+                        page.wait_for_function("""
+                            () => {
+                                const textarea = document.querySelector('#component-10 textarea');
+                                return textarea && textarea.value.trim() !== '' && !textarea.value.match(/^\\d+\\.\\d+s$/);
+                            }
+                        """, timeout=600000)
+                        # Extract the actual value from the textarea
+                        result = page.eval_on_selector("#component-10 textarea", "el => el.value")
+                        pred_str = normalizer(result.strip())
+                        success = True
+                        break  # Exit retry loop on success
 
-            for attempt in range(2):  # Try up to 2 times
+                    except PlaywrightTimeoutError:
+                        print(f"Timeout on {audio_file}, attempt {attempt + 1}/2")
+                        if attempt == 0:
+                            # First timeout: retry
+                            continue
+                        else:
+                            # Second timeout: give up
+                            print(f"Skipping {audio_file} after 2 timeouts.")
+                            break
+
+                # Compute metrics if successful
+                if success and pred_str is not None:
+                    word_N = len(pred_str.split())
+                    char_N = len(pred_str.replace(" ", ""))
+                    wer = metric_wer.compute(predictions=[pred_str], references=[label_str])
+                    cer = metric_cer.compute(predictions=[pred_str], references=[label_str])
+                else:
+                    pred_str = "[TIMEOUT]"
+                    wer = cer = -1.0
+                    word_N = char_N = 0
+
+                # Update in-memory results
+                existing_results[audio_file] = {
+                    "file_path": audio_file,
+                    "class_label": str(lab),
+                    "expected_text": label_str,
+                    "transcription": pred_str,
+                    "wer": str(wer),
+                    "cer": str(cer),
+                    "word_count": str(word_N),
+                    "char_count": str(char_N)
+                }
+            except Exception as e:
+                print(f"❗ Error processing {audio_file}: {e}")
+                existing_results[audio_file] = {
+                    "file_path": audio_file,
+                    "class_label": str(lab),
+                    "expected_text": label_str,
+                    "transcription": "[ERROR]",
+                    "wer": "-1.0",
+                    "cer": "-1.0",
+                    "word_count": "0",
+                    "char_count": "0",
+                }
+            finally:
                 try:
-                    # 1. Clear if needed (optional)
-                    page.click("#component-4")
-                    # 2. Upload
-                    page.set_input_files("#component-2 input[type='file']", audio_file)
-                    # 3. Wait for waveform/duration → upload complete
-                    page.wait_for_selector("#component-2 .waveform-container", timeout=600000)
-                    # 4. Now click Run — safe!
-                    page.click("#component-5")
-                    # Wait until the textarea has non-empty value
-                    page.wait_for_function("""
-                        () => {
-                            const textarea = document.querySelector('#component-10 textarea');
-                            return textarea && textarea.value.trim() !== '' && !textarea.value.match(/^\\d+\\.\\d+s$/);
-                        }
-                    """, timeout=600000)
-                    # Extract the actual value from the textarea
-                    result = page.eval_on_selector("#component-10 textarea", "el => el.value")
-                    pred_str = normalizer(result.strip())
-                    success = True
-                    break  # Exit retry loop on success
-
-                except PlaywrightTimeoutError:
-                    print(f"Timeout on {audio_file}, attempt {attempt + 1}/2")
-                    if attempt == 0:
-                        # First timeout: retry
-                        continue
-                    else:
-                        # Second timeout: give up
-                        print(f"Skipping {audio_file} after 2 timeouts.")
-                        break
-
-            # Compute metrics if successful
-            if success and pred_str is not None:
-                word_N = len(pred_str.split())
-                char_N = len(pred_str.replace(" ", ""))
-                wer = metric_wer.compute(predictions=[pred_str], references=[label_str])
-                cer = metric_cer.compute(predictions=[pred_str], references=[label_str])
-            else:
-                pred_str = "[TIMEOUT]"
-                wer = cer = -1.0
-                word_N = char_N = 0
-
-            # Update in-memory results
-            existing_results[audio_file] = {
-                "file_path": audio_file,
-                "class_label": str(lab),
-                "expected_text": label_str,
-                "transcription": pred_str,
-                "wer": str(wer),
-                "cer": str(cer),
-                "word_count": str(word_N),
-                "char_count": str(char_N)
-            }
+                    page.close()
+                except:
+                    pass  # Ignore if already closed
 # ----------------------------
 # STEP 4: OVERWRITE the original file with FULL updated results
 # ----------------------------
