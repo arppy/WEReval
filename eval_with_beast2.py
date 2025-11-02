@@ -208,8 +208,15 @@ for lab in range(params.label_count[params.dataset]) :
         np_all_wN_per_lab = np.array(all_wN_per_class[lab])
         np_all_cer_per_lab = np.array(all_cer_per_class[lab])
         np_all_cN_per_lab = np.array(all_cN_per_class[lab])
-        wer_w_list.append(np.average(np_all_wer_per_lab, weights=np_all_wN_per_lab))
-        cer_w_list.append(np.average(np_all_cer_per_lab, weights=np_all_cN_per_lab))
+        # Check if weights sum to zero
+        if np_all_wN_per_lab.sum() == 0:
+            wer_w_list.append(-1.0)  # or np.nan, or skip
+        else:
+            wer_w_list.append(np.average(np_all_wer_per_lab, weights=np_all_wN_per_lab))
+        if np_all_cN_per_lab.sum() == 0:
+            cer_w_list.append(-1.0)
+        else:
+            cer_w_list.append(np.average(np_all_cer_per_lab, weights=np_all_cN_per_lab))
     else :
         wer_w_list.append(-1.0)
         cer_w_list.append(-1.0)
