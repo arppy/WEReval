@@ -11,11 +11,11 @@ from utils import get_LaciControl_as_list, get_LaciDys_as_list, get_Bea_as_list,
 import params
 
 def launch_browser():
-    new_p = sync_playwright()
-    new_p.start()
-    new_browser = new_p.chromium.launch(headless=True, args=["--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
-                                                     "--disable-extensions", "--disable-plugins", "--disable-images"])
-    return new_p, new_browser
+    playwright_instance = sync_playwright().start()
+    new_browser = playwright_instance.chromium.launch(headless=True, args=["--disable-gpu", "--no-sandbox",
+                                                     "--disable-dev-shm-usage", "--disable-extensions",
+                                                     "--disable-plugins", "--disable-images"])
+    return playwright_instance, new_browser
 
 parser = argparse.ArgumentParser(description="Evaluation with BEAST2 ASR.")
 parser.add_argument("dataset", metavar="dataset", type=str, help="Name of dataset.")
