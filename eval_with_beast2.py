@@ -10,6 +10,9 @@ from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 from utils import get_LaciControl_as_list, get_LaciDys_as_list, get_Bea_as_list, get_HunDys_as_list
 import params
 
+ERROR_STR = "[ERROR]"
+TIMEOUT_STR = "[TIMEOUT]"
+
 def launch_browser():
     playwright_instance = sync_playwright().start()
     new_browser = playwright_instance.chromium.launch(headless=True, args=["--disable-gpu", "--no-sandbox",
@@ -58,7 +61,7 @@ to_process = []
 for i, fp in enumerate(file_paths):
     fp_str = str(fp)
     existing = existing_results.get(fp_str)
-    if existing is None or existing["transcription"] == "TIMEOUT":
+    if existing is None or existing["transcription"] == TIMEOUT_STR or existing["transcription"] == ERROR_STR:
         to_process.append(fp)
 print(f"Files to process/retry: {len(to_process)}")
 
@@ -117,7 +120,7 @@ if to_process:
                     wer = metric_wer.compute(predictions=[pred_str], references=[label_str])
                     cer = metric_cer.compute(predictions=[pred_str], references=[label_str])
                 else:
-                    pred_str = "[TIMEOUT]"
+                    pred_str = TIMEOUT_STR
                     wer = cer = -1.0
                     word_N = char_N = 0
 
@@ -138,7 +141,7 @@ if to_process:
                     "file_path": audio_file,
                     "class_label": str(lab),
                     "expected_text": label_str,
-                    "transcription": "[ERROR]",
+                    "transcription": ERROR_STR,
                     "wer": "-1.0",
                     "cer": "-1.0",
                     "word_count": "0",
