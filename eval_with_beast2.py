@@ -13,7 +13,7 @@ import params
 def launch_browser():
     new_p = sync_playwright()
     new_p.start()
-    new_browser = p.chromium.launch(headless=True, args=["--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
+    new_browser = new_p.chromium.launch(headless=True, args=["--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
                                                      "--disable-extensions", "--disable-plugins", "--disable-images"])
     return new_p, new_browser
 
