@@ -10,6 +10,13 @@ from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 from utils import get_LaciControl_as_list, get_LaciDys_as_list, get_Bea_as_list, get_HunDys_as_list
 import params
 
+def launch_browser():
+    new_p = sync_playwright()
+    new_p.start()
+    new_browser = p.chromium.launch(headless=True, args=["--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
+                                                     "--disable-extensions", "--disable-plugins", "--disable-images"])
+    return new_p, new_browser
+
 parser = argparse.ArgumentParser(description="Evaluation with BEAST2 ASR.")
 parser.add_argument("dataset", metavar="dataset", type=str, help="Name of dataset.")
 parser.add_argument("wav_dir", metavar="wav-dir", type=Path, help="path to audio directory.")
@@ -59,9 +66,9 @@ print(f"Files to process/retry: {len(to_process)}")
 # STEP 3: Process missing or failed files
 # ----------------------------
 if to_process:
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        for audio_file_name in to_process:
+    try:
+        p_ctx, browser = launch_browser()
+        for idx, audio_file_name in enumerate(to_process):
             audio_file = str(audio_file_name)
             label_str_orig, lab = file_to_info[audio_file]
             label_str = normalizer(label_str_orig)
@@ -141,7 +148,20 @@ if to_process:
                 try:
                     page.close()
                 except:
-                    pass  # Ignore if already closed
+                    pass
+            if (idx + 1) % 500 == 0 and (idx + 1) < len(to_process):
+                browser.close()
+                p_ctx.stop()
+                p_ctx, browser = launch_browser()
+    finally:
+        try:
+            browser.close()
+        except:
+            pass
+        try:
+            p_ctx.stop()
+        except:
+            pass
 # ----------------------------
 # STEP 4: OVERWRITE the original file with FULL updated results
 # ----------------------------
