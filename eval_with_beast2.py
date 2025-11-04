@@ -77,6 +77,12 @@ if to_process:
             label_str = normalizer(label_str_orig)
             pred_str = None
             success = False
+            # Estimate duration from file size (1 MB ≈ 10 seconds for 16kHz mono 16-bit PCM)
+            file_size_mb = Path(audio_file).stat().st_size / (1024 * 1024)
+            duration = max(file_size_mb * 10, 10.0)  # At least 10 seconds
+            # Set dynamic timeout: 3x duration + 30s buffer, clamped between 60s and 600s
+            timeout_seconds = max(60, min(600, int(3 * duration + 30)))
+            timeout = timeout_seconds * 1000
             page = browser.new_page()
             try:
                 page.goto("https://phon.nytud.hu/beast2")
@@ -87,7 +93,7 @@ if to_process:
                         # 2. Upload
                         page.set_input_files("#component-2 input[type='file']", audio_file)
                         # 3. Wait for waveform/duration → upload complete
-                        page.wait_for_selector("#component-2 .waveform-container", timeout=600000)
+                        page.wait_for_selector("#component-2 .waveform-container", timeout=timeout)
                         # 4. Now click Run — safe!
                         page.click("#component-5")
                         # Wait until the textarea has non-empty value
@@ -96,7 +102,7 @@ if to_process:
                                 const textarea = document.querySelector('#component-10 textarea');
                                 return textarea && textarea.value.trim() !== '' && !textarea.value.match(/^\\d+\\.\\d+s$/);
                             }
-                        """, timeout=600000)
+                        """, timeout=timeout)
                         # Extract the actual value from the textarea
                         result = page.eval_on_selector("#component-10 textarea", "el => el.value")
                         pred_str = normalizer(result.strip())
