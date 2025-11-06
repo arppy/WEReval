@@ -10,18 +10,17 @@ from transformers import (WhisperProcessor, WhisperTokenizer, WhisperForConditio
                           Seq2SeqTrainingArguments, Seq2SeqTrainer, Wav2Vec2ForCTC, AutoProcessor)
 from transformers.models.whisper.english_normalizer import EnglishTextNormalizer, BasicTextNormalizer
 
-from accelerate import Accelerator
-
 import params
 from utils import load_dataset_for_ASR_without_prepare
 
-accelerator = Accelerator()
+DEVICE = torch.device("cuda")
 model_id = "facebook/mms-1b-fl102"
 parser = argparse.ArgumentParser(description="Evaluation with ASR.")
 parser.add_argument("wav_dir", metavar="wav-dir", type=Path, help="path to audio directory.")
 args = parser.parse_args()
 processor = AutoProcessor.from_pretrained(model_id)
 model = Wav2Vec2ForCTC.from_pretrained(model_id)
+model = model.to(DEVICE)
 if params.lang == "en" :
     processor.tokenizer.set_target_lang("eng")
     model.load_adapter("eng")
@@ -89,7 +88,7 @@ with open('transcriptions_'+params.dataset+'_testdys.txt', 'w') as file, open('e
             # Now chunk is guaranteed to be exactly 30s
             assert len(chunk) == params.CHUNK_SAMPLES, f"Chunk {i} has {len(chunk)} samples!"
 
-            inputs = processor(chunk, sampling_rate=params.SAMPLING_RATE, return_tensors="pt")
+            inputs = processor(chunk, sampling_rate=params.SAMPLING_RATE, return_tensors="pt").to(DEVICE)
 
             with torch.no_grad():
                 outputs = model(**inputs).logits
