@@ -6,42 +6,42 @@ import torch
 import evaluate
 import argparse
 import csv
-from transformers import Wav2Vec2ForCTC, AutoProcessor
+from nemo.collections.asr.models import ASRModel
 from transformers.models.whisper.english_normalizer import EnglishTextNormalizer, BasicTextNormalizer
 
 import params
-from utils import load_dataset_for_ASR_without_prepare
+from utils import get_LaciControl_as_list, get_LaciDys_as_list, get_TrogoGenerated_as_list, get_HunDys_as_list, get_UASpeech_as_list, get_SzegedDys_as_list
 
 DEVICE = torch.device("cuda")
-model_id = "facebook/mms-1b-fl102"
 parser = argparse.ArgumentParser(description="Evaluation with ASR.")
 parser.add_argument("wav_dir", metavar="wav-dir", type=Path, help="path to audio directory.")
 parser.add_argument("output_file", metavar="output-file", type=Path, help="path to output file.")
 args = parser.parse_args()
 output_file = Path(args.output_file)
-processor = AutoProcessor.from_pretrained(model_id)
-model = Wav2Vec2ForCTC.from_pretrained(model_id)
+model = ASRModel.from_pretrained(model_name="nvidia/canary-1b-v2")
 model = model.to(DEVICE)
 if params.lang == "en" :
-    processor.tokenizer.set_target_lang("eng")
-    model.load_adapter("eng")
     mapping_path = os.path.join(os.path.dirname("imports/"), "english.json")
     english_spelling_mapping = json.load(open(mapping_path))
     normalizer = EnglishTextNormalizer(english_spelling_mapping)
 else :
-    processor.tokenizer.set_target_lang("hun")
-    model.load_adapter("hun")
     normalizer = BasicTextNormalizer()
-
-fn_kwargs = {"feature_extractor":  processor.feature_extractor,
-             "tokenizer": processor.tokenizer,
-             "augmentor": None}
-
-
-#dataset_train = load_UASpeech_dataset(params.TRAIN_SPEAKERS, fn_kwargs)
-#dataset_test = load_UASpeech_dataset(params.TEST_SPEAKERS, fn_kwargs)
-dataset_testds = load_dataset_for_ASR_without_prepare(params.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, True)
-#test_loader = torch.utils.data.DataLoader(dataset, batch_size=params.per_device_train_batch_size)
+dataset_dir=args.wav_dir
+file_paths = []
+texts = []
+labels = []
+if params.dataset is params.TORGO_GENERATED:
+    file_paths, texts, labels = get_TrogoGenerated_as_list(params.torgo_generated_dir)
+elif params.dataset is params.LACICON:
+    dataset_dir_final = params.laci_control_dir if dataset_dir == Path() else dataset_dir
+    file_paths, texts, labels = get_LaciControl_as_list(dataset_dir_final)
+elif params.dataset is params.LACIDYS:
+    dataset_dir_final = params.laci_dys_dir if dataset_dir == Path() else dataset_dir
+    file_paths, texts, labels = get_LaciDys_as_list(dataset_dir_final)
+elif params.dataset is params.SZEGEDYS:
+    file_paths, texts, labels = get_SzegedDys_as_list(dataset_dir)
+elif params.dataset is params.HUNDYS:
+    file_paths, texts, labels = get_HunDys_as_list(dataset_dir)
 
 metric_wer = evaluate.load("wer")
 metric_cer = evaluate.load("cer")
@@ -74,45 +74,11 @@ with open(output_file, mode='w', newline='', encoding='utf-8') as f:
         "word_count",
         "char_count"
     ])
-    for idx, test_record in enumerate(dataset_testds):
-        audio_array = test_record["audio"]["array"]
-        orig_sr = test_record["audio"]["sampling_rate"]
-        reference_text = test_record["sentence"]
-        severity = test_record["severity"]
-
-        total_samples = len(audio_array)
-        num_chunks = int(np.ceil(total_samples / params.CHUNK_SAMPLES))
-
-        chunk_predictions = []
-
-        for i in range(num_chunks):
-            start = i * params.CHUNK_SAMPLES
-            end = start + params.CHUNK_SAMPLES
-            chunk = audio_array[start:end]
-
-            # Pad with silence (zeros) if shorter than 30s
-            if len(chunk) < params.CHUNK_SAMPLES:
-                padding = np.zeros(params.CHUNK_SAMPLES - len(chunk), dtype=chunk.dtype)
-                chunk = np.concatenate([chunk, padding])
-
-            # Now chunk is guaranteed to be exactly 30s
-            assert len(chunk) == params.CHUNK_SAMPLES, f"Chunk {i} has {len(chunk)} samples!"
-
-            inputs = processor(chunk, sampling_rate=params.SAMPLING_RATE, return_tensors="pt").to(DEVICE)
-
-            with torch.no_grad():
-                outputs = model(**inputs).logits
-
-            ids = torch.argmax(outputs, dim=-1)[0]
-            pred_str = processor.decode(ids)
-            pred_str = normalizer(pred_str)
-            chunk_predictions.append(pred_str)
-
+    for idx, file_path in enumerate(file_paths):
         # Concatenate all predictions
-        pred_str = " ".join(chunk_predictions).strip()
-        label_str = normalizer(reference_text)
-
-        lab = test_record['severity']
+        pred_str = model.transcribe([file_path], source_lang='hu', target_lang='hu')[0].text
+        label_str = normalizer(texts[idx])
+        lab = labels[idx]
 
         char_N = len(pred_str.replace(" ", ""))
         word_N = len(pred_str.split())
@@ -132,15 +98,16 @@ with open(output_file, mode='w', newline='', encoding='utf-8') as f:
         average_cer_per_class[lab] = np.mean(all_cer_per_class[lab])
 
         writer.writerow([
-            test_record['audio']['path'],
-            lab,
+            file_path,
+            str(lab),
             label_str,
             pred_str,
-            wer,
-            cer,
-            word_N,
-            char_N
+            str(wer),
+            str(cer),
+            str(word_N),
+            str(char_N)
         ])
+
 
 wer_a_list = []
 wer_w_list = []
