@@ -76,7 +76,7 @@ with open(output_file, mode='w', newline='', encoding='utf-8') as f:
     ])
     for idx, file_path in enumerate(file_paths):
         # Concatenate all predictions
-        pred_str = model.transcribe([file_path], source_lang='hu', target_lang='hu')[0].text
+        pred_str = normalizer(model.transcribe([file_path], source_lang='hu', target_lang='hu')[0].text)
         label_str = normalizer(texts[idx])
         lab = labels[idx]
 
