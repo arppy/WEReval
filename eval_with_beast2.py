@@ -83,7 +83,14 @@ if to_process:
             # Set dynamic timeout: 3x duration + 30s buffer, clamped between 60s and 600s
             timeout_seconds = max(60, min(600, int(3 * duration + 30)))
             timeout = timeout_seconds * 1000
-            page = browser.new_page()
+            if browser.is_connected():
+                page = browser.new_page()
+            else:
+                print("Browser disconnected. Restarting...")
+                browser.close()
+                p_ctx.stop()
+                p_ctx, browser = launch_browser()
+                page = browser.new_page()
             try:
                 page.goto("https://phon.nytud.hu/beast2")
                 for attempt in range(2):  # Try up to 2 times
