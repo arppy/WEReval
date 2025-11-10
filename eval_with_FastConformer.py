@@ -1,4 +1,4 @@
-from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import sync_playwright, expect, TimeoutError as PlaywrightTimeoutError
 from pathlib import Path
 import argparse
 import evaluate
@@ -24,8 +24,9 @@ parser = argparse.ArgumentParser(description="Evaluation with BEAST2 ASR.")
 parser.add_argument("dataset", metavar="dataset", type=str, help="Name of dataset.")
 parser.add_argument("wav_dir", metavar="wav-dir", type=Path, help="path to audio directory.")
 parser.add_argument("output_file", metavar="output-file", type=Path, help="path to output file.")
+parser.add_argument("username", metavar="output-file", type=str, help="username for FastConformer")
+parser.add_argument("password", metavar="output-file", type=str, help="password for FastConformer")
 args = parser.parse_args()
-
 if args.dataset == params.LACICON:
     file_paths, texts, labels = get_LaciControl_as_list(args.wav_dir)
 elif args.dataset == params.LACIDYS:
@@ -71,6 +72,159 @@ print(f"Files to process/retry: {len(to_process)}")
 if to_process:
     try:
         p_ctx, browser = launch_browser()
+        if browser.is_connected():
+            page = browser.new_page()
+        else:
+            print("Browser disconnected. Restarting...")
+            browser.close()
+            p_ctx.stop()
+            p_ctx, browser = launch_browser()
+            page = browser.new_page()
+        page.goto("https://speechtex.hu/asr-offline/index.php")
+
+        # Identify the input fields and login button by inspecting the page source.
+        # These selectors are placeholders and MUST be verified against the actual HTML.
+        # Example selectors based on common patterns (verify these!):
+        username_selector = "input#username"  # Often an ID like 'username' or 'email'
+        password_selector = "input#password"  # Often an ID like 'password'
+        login_button_selector = "button[type='submit'], input[type='submit']"  # Could be button or input
+
+        # Fill in the username field
+        print("Filling username...")
+        page.fill(username_selector, args.username)
+
+        # Fill in the password field
+        print("Filling password...")
+        page.fill(password_selector, args.password)
+
+        # Optional: Check the "Maradjak bejelentkezve!" (Keep me logged in) checkbox
+        # checkbox_selector = "input[type='checkbox'][name='remember']" # Verify selector
+        # page.check(checkbox_selector) # Uncomment if needed
+
+        # Click the login button
+        print("Clicking login button...")
+        page.click(login_button_selector)
+
+        # Wait for the specific page (content-wrapper.php) to load.
+        # This waits for the URL to match the expected pattern.
+        print("Waiting for content-wrapper.php...")
+        expect(page).to_have_url("**/content-wrapper.php**")  # Waits for URL containing 'content-wrapper.php'
+        print("Successfully navigated to content-wrapper.php or a similar page.")
+        upload_button_selector = "#uploadModalLink"  # Use the ID as specified
+        print(f"Looking for the main upload button with selector: {upload_button_selector}")
+        try:
+            # Wait for the button to be visible and enabled before clicking
+            upload_button = page.locator(upload_button_selector)
+            expect(upload_button).to_be_visible(timeout=10000)  # Wait up to 10 seconds
+            expect(upload_button).to_be_enabled()
+            print("Found the main upload button, clicking it...")
+            upload_button.click()
+            print("Clicked the 'HANGÁLLOMÁNY FELTÖLTÉSE' button. The upload modal (#uploadModal) should appear.")
+            for idx, audio_file_name in enumerate(to_process):
+                audio_file = str(audio_file_name)
+                label_str_orig, lab = file_to_info[audio_file]
+                label_str = normalizer(label_str_orig)
+                pred_str = None
+                success = False
+                # Estimate duration from file size (1 MB ≈ 10 seconds for 16kHz mono 16-bit PCM)
+                file_size_mb = Path(audio_file).stat().st_size / (1024 * 1024)
+                duration = max(file_size_mb * 10, 10.0)  # At least 10 seconds
+                # Set dynamic timeout: 3x duration + 30s buffer, clamped between 60s and 600s
+                timeout_seconds = max(60, min(600, int(3 * duration + 30)))
+                timeout = timeout_seconds * 1000
+                if browser.is_connected():
+                    page = browser.new_page()
+                else:
+                    print("Browser disconnected. Restarting...")
+                    browser.close()
+                    p_ctx.stop()
+                    p_ctx, browser = launch_browser()
+                    page = browser.new_page()
+                try:
+                    page.goto("https://phon.nytud.hu/beast2")
+                    for attempt in range(2):  # Try up to 2 times
+                        try:
+                            # 1. Clear if needed (optional)
+                            page.click("#component-4")
+                            # 2. Upload
+                            page.set_input_files("#component-2 input[type='file']", audio_file)
+                            # 3. Wait for waveform/duration → upload complete
+                            page.wait_for_selector("#component-2 .waveform-container", timeout=timeout)
+                            # 4. Now click Run — safe!
+                            page.click("#component-5")
+                            # Wait until the textarea has non-empty value
+                            page.wait_for_function("""
+                                () => {
+                                    const textarea = document.querySelector('#component-10 textarea');
+                                    return textarea && textarea.value.trim() !== '' && !textarea.value.match(/^\\d+\\.\\d+s$/);
+                                }
+                            """, timeout=timeout)
+                            # Extract the actual value from the textarea
+                            result = page.eval_on_selector("#component-10 textarea", "el => el.value")
+                            pred_str = normalizer(result.strip())
+                            success = True
+                            break  # Exit retry loop on success
+
+                        except PlaywrightTimeoutError:
+                            print(f"Timeout on {audio_file}, attempt {attempt + 1}/2")
+                            if attempt == 0:
+                                # First timeout: retry
+                                continue
+                            else:
+                                # Second timeout: give up
+                                print(f"Skipping {audio_file} after 2 timeouts.")
+                                break
+
+                    # Compute metrics if successful
+                    if success and pred_str is not None:
+                        word_N = len(pred_str.split())
+                        char_N = len(pred_str.replace(" ", ""))
+                        wer = metric_wer.compute(predictions=[pred_str], references=[label_str])
+                        cer = metric_cer.compute(predictions=[pred_str], references=[label_str])
+                    else:
+                        pred_str = TIMEOUT_STR
+                        wer = cer = -1.0
+                        word_N = char_N = 0
+
+                    # Update in-memory results
+                    existing_results[audio_file] = {
+                        "file_path": audio_file,
+                        "class_label": str(lab),
+                        "expected_text": label_str,
+                        "transcription": pred_str,
+                        "wer": str(wer),
+                        "cer": str(cer),
+                        "word_count": str(word_N),
+                        "char_count": str(char_N)
+                    }
+                except Exception as e:
+                    print(f"❗ Error processing {audio_file}: {e}")
+                    existing_results[audio_file] = {
+                        "file_path": audio_file,
+                        "class_label": str(lab),
+                        "expected_text": label_str,
+                        "transcription": ERROR_STR,
+                        "wer": "-1.0",
+                        "cer": "-1.0",
+                        "word_count": "0",
+                        "char_count": "0",
+                    }
+                finally:
+                    try:
+                        page.close()
+                    except:
+                        pass
+                if (idx + 1) % 500 == 0 and (idx + 1) < len(to_process):
+                    browser.close()
+                    p_ctx.stop()
+                    p_ctx, browser = launch_browser()
+
+        except Exception as e:
+            print(f"Error finding or clicking the main upload button: {e}")
+            print(
+                "Please ensure the button with id 'uploadModalLink' and text 'HANGÁLLOMÁNY FELTÖLTÉSE' is present on the page.")
+            # You might want to take a screenshot here for debugging
+            # page.screenshot(path="debug_content_wrapper_with_upload_btn.png")
         for idx, audio_file_name in enumerate(to_process):
             audio_file = str(audio_file_name)
             label_str_orig, lab = file_to_info[audio_file]
@@ -83,8 +237,15 @@ if to_process:
             # Set dynamic timeout: 3x duration + 30s buffer, clamped between 60s and 600s
             timeout_seconds = max(60, min(600, int(3 * duration + 30)))
             timeout = timeout_seconds * 1000
-            try:
+            if browser.is_connected():
                 page = browser.new_page()
+            else:
+                print("Browser disconnected. Restarting...")
+                browser.close()
+                p_ctx.stop()
+                p_ctx, browser = launch_browser()
+                page = browser.new_page()
+            try:
                 page.goto("https://phon.nytud.hu/beast2")
                 for attempt in range(2):  # Try up to 2 times
                     try:
