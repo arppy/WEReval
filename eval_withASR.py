@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import evaluate
 import argparse
-
+import csv
 from transformers import (WhisperProcessor, WhisperTokenizer, WhisperForConditionalGeneration,
                           Seq2SeqTrainingArguments, Seq2SeqTrainer)
 from transformers.models.whisper.english_normalizer import EnglishTextNormalizer, BasicTextNormalizer
@@ -21,21 +21,27 @@ CPU = torch.device('cpu')
 
 parser = argparse.ArgumentParser(description="Evaluation with ASR.")
 parser.add_argument("wav_dir", metavar="wav-dir", type=Path, help="path to audio directory.")
+parser.add_argument("output_file", metavar="output-file", type=Path, help="path to output file.")
 args = parser.parse_args()
+output_file = Path(args.output_file)
 model = WhisperForConditionalGeneration.from_pretrained(params.whisper_arch, torch_dtype=params.torch_dtype)
 model = model.to(DEVICE)
+processor = WhisperProcessor.from_pretrained(params.whisper_arch, torch_dtype=params.torch_dtype)
 model.config.forced_decoder_ids = None
+tokenizer = processor.tokenizer
+task_token_id = tokenizer.convert_tokens_to_ids("<|transcribe|>")
 if params.lang == "en" :
-    processor = WhisperProcessor.from_pretrained(params.whisper_arch, language="english", task="transcribe", torch_dtype=params.torch_dtype)
+    lang_token_id = tokenizer.convert_tokens_to_ids("<|en|>")
     model.generation_config.language = "english"
     mapping_path = os.path.join(os.path.dirname("imports/"), "english.json")
     english_spelling_mapping = json.load(open(mapping_path))
     normalizer = EnglishTextNormalizer(english_spelling_mapping)
 else :
-    processor = WhisperProcessor.from_pretrained(params.whisper_arch, language="hungarian", task="transcribe", torch_dtype=params.torch_dtype)
+    lang_token_id = tokenizer.convert_tokens_to_ids("<|hu|>")
     model.generation_config.language = "hungarian"
     normalizer = BasicTextNormalizer()
 
+model.config.forced_decoder_ids = [ (1, lang_token_id), (2, task_token_id) ]
 model.generation_config.task = "transcribe"
 #augmentor = SpeedAugmentation(params.SAMPLING_RATE, params.speed_factor)
 
@@ -70,9 +76,18 @@ for i in range(params.label_count[params.dataset]) :
     all_expects_str_per_class[i] = ""
     average_wer_per_class.append(-1)
     average_cer_per_class.append(-1)
-i = 0
-j = 0
-with open('transcriptions_'+params.dataset+'_testdys.txt', 'w') as file, open('expected_texts_'+params.dataset+'.txt', 'w') as expected_file:
+with open(output_file, mode='w', newline='', encoding='utf-8') as f:
+    writer = csv.writer(f)
+    writer.writerow([
+        "file_path",
+        "class_label",
+        "expected_text",
+        "transcription",
+        "wer",
+        "cer",
+        "word_count",
+        "char_count"
+    ])
     for test_record in dataset_testds:
         collated_test_record = data_collator([test_record])
         input_features = collated_test_record["input_features"].to(params.torch_dtype).to(DEVICE)
@@ -107,13 +122,17 @@ with open('transcriptions_'+params.dataset+'_testdys.txt', 'w') as file, open('e
         all_cN_per_class[lab].extend([char_N])  # Add the current batch's CERs to the list
         average_wer_per_class[lab] = np.mean(all_wer_per_class[lab])
         average_cer_per_class[lab] = np.mean(all_cer_per_class[lab])
-        i += 1
 
-        #print(average_wer_per_class, average_cer_per_class)
-        # Write each transcription to the file
-        file.write(str(j) + ':' + pred_str + '\n')
-        expected_file.write(str(j) + ':' + label_str + '\n')
-        j += 1
+        writer.writerow([
+            test_record['audio']['path'],
+            lab,
+            label_str,
+            pred_str,
+            wer,
+            cer,
+            word_N,
+            char_N
+        ])
 
 wer_a_list = []
 wer_w_list = []
