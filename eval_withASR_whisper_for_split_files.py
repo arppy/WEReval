@@ -46,11 +46,6 @@ model.config.forced_decoder_ids = [ (1, lang_token_id), (2, task_token_id) ]
 model.generation_config.task = "transcribe"
 #augmentor = SpeedAugmentation(params.SAMPLING_RATE, params.speed_factor)
 
-fn_kwargs = {"feature_extractor":  processor.feature_extractor,
-             "tokenizer": processor.tokenizer,
-             "augmentor": None}
-
-
 #dataset_train = load_UASpeech_dataset(params.TRAIN_SPEAKERS, fn_kwargs)
 #dataset_test = load_UASpeech_dataset(params.TEST_SPEAKERS, fn_kwargs)
 dataset_testds = load_dataset_for_ASR_without_prepare(params.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, True)
@@ -65,17 +60,14 @@ for test_record in dataset_testds:
     file_path = Path(test_record['audio']['path'])
     name = file_path.stem
     # Match pattern like M001_09_1, CF014_09_01, etc. (has number at the end after underscores)
-    match = re.match(r'^([A-Z][a-z]*\d+_\d+)(?:_(\d+))+$', name)
-    if match:
+    matcher = re.match(r'^([A-Z]+\d+_\d+)_(\d+)$', name)
+    if matcher:
         # Additional check: make sure it's not a complex filename with descriptive text
-        prefix = match.group(1)  # e.g., "M001_09", "CF014_09"
+        prefix = matcher.group(1)  # e.g., "M001_09", "CF014_09"
         underscore_count = name.count('_')
-        if underscore_count <= 3:  # Simple pattern like M001_09_1 (2 underscores) or CF014_09_01 (3 underscores)
-            if prefix not in file_groups:
-                file_groups[prefix] = []
-            file_groups[prefix].append(test_record)
-        else:
-            ungrouped_records.append(test_record)
+        if prefix not in file_groups:
+            file_groups[prefix] = []
+        file_groups[prefix].append(test_record)
     else:
         ungrouped_records.append(test_record)
 
