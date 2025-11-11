@@ -14,7 +14,7 @@ from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
 from accelerate import Accelerator
 
 import params
-from utils import load_dataset_for_ASR, DataCollatorSpeechSeq2SeqWithPadding
+from utils import load_dataset_for_ASR_without_prepare, DataCollatorSpeechSeq2SeqWithPadding
 
 accelerator = Accelerator()
 DEVICE = accelerator.device
@@ -53,10 +53,8 @@ fn_kwargs = {"feature_extractor":  processor.feature_extractor,
 
 #dataset_train = load_UASpeech_dataset(params.TRAIN_SPEAKERS, fn_kwargs)
 #dataset_test = load_UASpeech_dataset(params.TEST_SPEAKERS, fn_kwargs)
-dataset_testds = load_dataset_for_ASR(params.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, fn_kwargs, True)
+dataset_testds = load_dataset_for_ASR_without_prepare(params.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, fn_kwargs, True)
 #test_loader = torch.utils.data.DataLoader(dataset, batch_size=params.per_device_train_batch_size)
-
-data_collator = DataCollatorSpeechSeq2SeqWithPadding(processor=processor, decoder_start_token_id=model.config.decoder_start_token_id)
 
 # Group files for concatenation
 file_groups = {}
@@ -118,24 +116,25 @@ with open(output_file, mode='w', newline='', encoding='utf-8') as f:
         # Sort by sequence number
         group_records.sort(key=lambda x: int(re.search(r'_(\d+)$', Path(x['audio']['path']).stem).group(1)))
         concatenated_pred_str = ""
-        severity = group_records[0]['severity']  # Assume same severity for all in group
+        lab = group_records[0]['severity']  # Assume same severity for all in group
+        reference_text = group_records[0]["sentence"]
         path = Path(group_records[0]['audio']['path'])
         stem = path.stem
         base_name = re.sub(r'_\d+$', '', stem)
         modified_path = path.parent / f"{base_name}.wav"
         for record in group_records:
-            collated_record = data_collator([record])
-            input_features = collated_record["input_features"].to(params.torch_dtype).to(DEVICE)
+            audio_array = record["audio"]["array"]
+            input_features = processor(
+                audio_array,
+                sampling_rate=params.SAMPLING_RATE,
+                return_tensors="pt"
+            ).input_features.to(params.torch_dtype).to(DEVICE)
             pred = model.generate(input_features)
             pred_ids = pred[0]
             pred_str = normalizer(processor.tokenizer.decode(pred_ids, skip_special_tokens=True))
             concatenated_pred_str += " " + pred_str
         pred_str = concatenated_pred_str.strip()
-        label_ids = collated_record['labels'].to(DEVICE)
-        label_ids[label_ids == -100] = processor.tokenizer.pad_token_id
-        label_ids = label_ids[0]
-        label_str = normalizer(processor.tokenizer.decode(label_ids, skip_special_tokens=True))
-        lab = severity
+        label_str = normalizer(reference_text)
 
         wer = metric_wer.compute(predictions=[pred_str], references=[label_str])
         cer = metric_cer.compute(predictions=[pred_str], references=[label_str])
@@ -154,23 +153,19 @@ with open(output_file, mode='w', newline='', encoding='utf-8') as f:
 
     ungrouped_results = []
     for record in ungrouped_records:
-        collated_record = data_collator([record])
-        collated_test_record = data_collator([record])
-        input_features = collated_test_record["input_features"].to(params.torch_dtype).to(DEVICE)
+        audio_array = record["audio"]["array"]
+        reference_text = record["sentence"]
+        lab = record["severity"]
+        input_features = processor(
+            audio_array,
+            sampling_rate=params.SAMPLING_RATE,
+            return_tensors="pt"
+        ).input_features.to(params.torch_dtype).to(DEVICE)
         pred = model.generate(input_features)
 
         pred_ids = pred[0]
-        label_ids = collated_test_record['labels'].to(DEVICE)
-
-        # replace -100 with the pad_token_id
-        label_ids[label_ids == -100] = processor.tokenizer.pad_token_id
-        label_ids = label_ids[0]
-
-        # we do not want to group tokens when computing the metrics
         pred_str = normalizer(processor.tokenizer.decode(pred_ids, skip_special_tokens=True))
-        label_str = normalizer(processor.tokenizer.decode(label_ids, skip_special_tokens=True))
-
-        lab = record['severity']
+        label_str = normalizer(reference_text)
 
         char_N = len(pred_str.replace(" ", ""))
         word_N = len(pred_str.split())
