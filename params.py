@@ -39,7 +39,7 @@ speakers_dict[TEST_SPEAKERS] = [item for item in speakers_dict[ALL_SPEAKERS] if 
 speakers_dict[TEST_CONTROL_SPEAKERS] = [spk for spk in speakers_dict[ALL_SPEAKERS] if spk.startswith("C") and spk not in speakers_dict[TRAIN_SPEAKERS]]
 speakers_dict[TEST_DYSARTHRIC_SPEAKERS] = [spk for spk in speakers_dict[ALL_SPEAKERS] if not spk.startswith("C") and spk not in speakers_dict[TRAIN_SPEAKERS]]
 
-dataset = HUNDYS
+dataset = SZEGEDYS
 #dataset = "hirado"
 hungarian_datasets = {HIRADO, LACICON, LACIDYS, SZEGEDYS, HUNDYS, SZINDBAD, BEA}
 if dataset in hungarian_datasets :
@@ -75,4 +75,4 @@ TORGO_dys_spks = ["F04", "M03", "F03", "M05", "F01", "M01", "M02", "M04"]
 TORGO_dyslabels = [1, 1, 2, 3, 4, 4, 4, 4]
 
 TORGO_dys_speaker_dict = dict(zip(TORGO_dys_spks, TORGO_dyslabels))
-label_count = {TORGO: 5, TORGO_GENERATED: 5, UASPEECH: 5, LACICON: 1, LACIDYS: 5, HUNDYS: 50}
+label_count = {TORGO: 5, TORGO_GENERATED: 5, UASPEECH: 5, LACICON: 1, LACIDYS: 5, HUNDYS: 50, SZEGEDYS: 9}

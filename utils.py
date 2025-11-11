@@ -272,15 +272,29 @@ def get_HunDys_as_list(wav_directory_path=Path(params.hundys_dir)) :
         labels.append(label)
     return file_paths, texts, labels
 
+SzegedDys_label_to_idx = {
+    'CF014': 0,
+    'CM013': 1,
+    'F001': 2,
+    'F002': 3,
+    'F003': 4,
+    'F004': 5,
+    'M001': 6,
+    'P01': 7,
+    'P02': 8
+}
+
 def get_SzegedDys_as_list(wav_directory_path) :
     text_directory_path = wav_directory_path.parent / "text"
     texts = []
     labels = []
     file_paths = []
     for path_Laci_file_wav in wav_directory_path.iterdir():
-        basename = "_"+path_Laci_file_wav.stem.split("_")[1]
+        filename_array = path_Laci_file_wav.stem.split("_")
+        label = SzegedDys_label_to_idx[filename_array[0]]
+        text_name = "_"+filename_array[1]
         for path_Laci_file_text in text_directory_path.iterdir():
-            if basename in path_Laci_file_text.name :
+            if text_name in path_Laci_file_text.name :
                 file_paths.append(str(path_Laci_file_wav))
                 try :
                     with open(path_Laci_file_text, 'r', encoding='utf-8') as file:
@@ -297,7 +311,7 @@ def get_SzegedDys_as_list(wav_directory_path) :
                     for wrong_char, correct_char in char_fixes.items():
                         text = text.replace(wrong_char, correct_char)
                 texts.append(text)
-                labels.append(3)
+                labels.append(label)
     return file_paths, texts, labels
 
 
