@@ -7,44 +7,33 @@ import evaluate
 import argparse
 import csv
 import re
-from transformers import (WhisperProcessor, WhisperTokenizer, WhisperForConditionalGeneration,
-                          Seq2SeqTrainingArguments, Seq2SeqTrainer)
+from transformers import Wav2Vec2ForCTC, AutoProcessor
 from transformers.models.whisper.english_normalizer import EnglishTextNormalizer, BasicTextNormalizer
 
-from accelerate import Accelerator
-
 import params
-from utils import load_dataset_for_ASR_without_prepare, DataCollatorSpeechSeq2SeqWithPadding
+from utils import load_dataset_for_ASR_without_prepare
 
-accelerator = Accelerator()
-DEVICE = accelerator.device
-CPU = torch.device('cpu')
-
+DEVICE = torch.device("cuda")
+model_id = "facebook/mms-1b-fl102"
 parser = argparse.ArgumentParser(description="Evaluation with ASR.")
 parser.add_argument("wav_dir", metavar="wav-dir", type=Path, help="path to audio directory.")
 parser.add_argument("output_file", metavar="output-file", type=Path, help="path to output file.")
 args = parser.parse_args()
 output_file = Path(args.output_file)
-model = WhisperForConditionalGeneration.from_pretrained(params.whisper_arch, torch_dtype=params.torch_dtype)
+processor = AutoProcessor.from_pretrained(model_id)
+model = Wav2Vec2ForCTC.from_pretrained(model_id)
 model = model.to(DEVICE)
-processor = WhisperProcessor.from_pretrained(params.whisper_arch, torch_dtype=params.torch_dtype)
-model.config.forced_decoder_ids = None
-tokenizer = processor.tokenizer
-task_token_id = tokenizer.convert_tokens_to_ids("<|transcribe|>")
 if params.lang == "en" :
-    lang_token_id = tokenizer.convert_tokens_to_ids("<|en|>")
-    model.generation_config.language = "english"
+    processor.tokenizer.set_target_lang("eng")
+    model.load_adapter("eng")
     mapping_path = os.path.join(os.path.dirname("imports/"), "english.json")
     english_spelling_mapping = json.load(open(mapping_path))
     normalizer = EnglishTextNormalizer(english_spelling_mapping)
 else :
-    lang_token_id = tokenizer.convert_tokens_to_ids("<|hu|>")
-    model.generation_config.language = "hungarian"
+    processor.tokenizer.set_target_lang("hun")
+    model.load_adapter("hun")
     normalizer = BasicTextNormalizer()
 
-model.config.forced_decoder_ids = [ (1, lang_token_id), (2, task_token_id) ]
-model.generation_config.task = "transcribe"
-#augmentor = SpeedAugmentation(params.SAMPLING_RATE, params.speed_factor)
 
 #dataset_train = load_UASpeech_dataset(params.TRAIN_SPEAKERS, fn_kwargs)
 #dataset_test = load_UASpeech_dataset(params.TEST_SPEAKERS, fn_kwargs)
@@ -115,14 +104,13 @@ with open(output_file, mode='w', newline='', encoding='utf-8') as f:
         modified_path = path.parent / f"{base_name}.wav"
         for record in group_records:
             audio_array = record["audio"]["array"]
-            input_features = processor(
-                audio_array,
-                sampling_rate=params.SAMPLING_RATE,
-                return_tensors="pt"
-            ).input_features.to(params.torch_dtype).to(DEVICE)
-            pred = model.generate(input_features)
-            pred_ids = pred[0]
-            pred_str = normalizer(processor.tokenizer.decode(pred_ids, skip_special_tokens=True))
+            inputs = processor(audio_array, sampling_rate=params.SAMPLING_RATE, return_tensors="pt").to(DEVICE)
+            with torch.no_grad():
+                outputs = model(**inputs).logits
+
+            ids = torch.argmax(outputs, dim=-1)[0]
+            pred_str = processor.decode(ids)
+            pred_str = normalizer(pred_str)
             concatenated_pred_str += " " + pred_str
         pred_str = concatenated_pred_str.strip()
         label_str = normalizer(reference_text)
@@ -141,20 +129,18 @@ with open(output_file, mode='w', newline='', encoding='utf-8') as f:
             word_N,
             char_N
         ])
-
     for record in ungrouped_records:
         audio_array = record["audio"]["array"]
         reference_text = record["sentence"]
         lab = record["severity"]
-        input_features = processor(
-            audio_array,
-            sampling_rate=params.SAMPLING_RATE,
-            return_tensors="pt"
-        ).input_features.to(params.torch_dtype).to(DEVICE)
-        pred = model.generate(input_features)
+        inputs = processor(audio_array, sampling_rate=params.SAMPLING_RATE, return_tensors="pt").to(DEVICE)
 
-        pred_ids = pred[0]
-        pred_str = normalizer(processor.tokenizer.decode(pred_ids, skip_special_tokens=True))
+        with torch.no_grad():
+            outputs = model(**inputs).logits
+
+        ids = torch.argmax(outputs, dim=-1)[0]
+        pred_str = processor.decode(ids)
+        pred_str = normalizer(pred_str)
         label_str = normalizer(reference_text)
 
         char_N = len(pred_str.replace(" ", ""))
@@ -199,7 +185,7 @@ for lab in range(params.label_count[params.dataset]) :
         np_all_cN_per_lab = np.array(all_cN_per_class[lab])
         wer_w_list.append(np.average(np_all_wer_per_lab, weights=np_all_wN_per_lab))
         cer_w_list.append(np.average(np_all_cer_per_lab, weights=np_all_cN_per_lab))
-    else:
+    else :
         wer_a_list.append(-1.0)
         wer_w_list.append(-1.0)
         cer_a_list.append(-1.0)
