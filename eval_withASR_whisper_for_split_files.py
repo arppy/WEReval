@@ -53,7 +53,7 @@ fn_kwargs = {"feature_extractor":  processor.feature_extractor,
 
 #dataset_train = load_UASpeech_dataset(params.TRAIN_SPEAKERS, fn_kwargs)
 #dataset_test = load_UASpeech_dataset(params.TEST_SPEAKERS, fn_kwargs)
-dataset_testds = load_dataset_for_ASR_without_prepare(params.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, fn_kwargs, True)
+dataset_testds = load_dataset_for_ASR_without_prepare(params.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, True)
 #test_loader = torch.utils.data.DataLoader(dataset, batch_size=params.per_device_train_batch_size)
 
 # Group files for concatenation
