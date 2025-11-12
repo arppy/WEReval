@@ -260,11 +260,6 @@ for lab in range(params.label_count[params.dataset]) :
     else :
         wer_w_list.append(-1.0)
         cer_w_list.append(-1.0)
-print(wer_w_list, cer_w_list)
-print("final average_wer_per_class")
-print(*average_wer_per_class, sep='\n')
-print("final average_cer_per_class")
-print(*average_cer_per_class, sep='\n')
 print("average_wer_per_class")
 print(*wer_w_list, sep='\n')
 print("average_cer_per_class")
