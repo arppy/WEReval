@@ -7,7 +7,8 @@ import csv
 
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 
-from utils import get_LaciControl_as_list, get_LaciDys_as_list, get_Bea_as_list, get_HunDys_as_list
+from utils import get_LaciControl_as_list, get_LaciDys_as_list, get_Bea_as_list, get_HunDys_as_list, \
+    get_SzegedDys_as_list
 import params
 
 ERROR_STR = "[ERROR]"
@@ -24,6 +25,7 @@ parser = argparse.ArgumentParser(description="Evaluation with BEAST2 ASR.")
 parser.add_argument("dataset", metavar="dataset", type=str, help="Name of dataset.")
 parser.add_argument("wav_dir", metavar="wav-dir", type=Path, help="path to audio directory.")
 parser.add_argument("output_file", metavar="output-file", type=Path, help="path to output file.")
+parser.add_argument('patterns', nargs='+', help='List of patterns to match at the start of filenames (if empty, all files are processed)')
 args = parser.parse_args()
 
 if args.dataset == params.LACICON:
@@ -34,10 +36,19 @@ elif args.dataset == params.BEA:
     file_paths, texts, labels = get_Bea_as_list(args.wav_dir)
 elif args.dataset == params.HUNDYS:
     file_paths, texts, labels = get_HunDys_as_list(args.wav_dir)
+elif args.dataset == params.SZEGEDYS:
+    file_paths, texts, labels = get_SzegedDys_as_list(args.wav_dir)
 
 file_to_info = {str(fp): (txt, lbl) for fp, txt, lbl in zip(file_paths, texts, labels)}
 normalizer = BasicTextNormalizer()
 
+# Find matching files based on patterns
+if args.patterns:
+    # Filter files that start with any of the specified patterns
+    file_paths = [
+        file_path for file_path in file_paths
+        if any(Path(file_path).name.startswith(pattern) for pattern in args.patterns)
+    ]
 metric_wer = evaluate.load("wer")
 metric_cer = evaluate.load("cer")
 # Open output CSV file

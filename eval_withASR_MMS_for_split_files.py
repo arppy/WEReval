@@ -115,10 +115,23 @@ with open(output_file, mode='w', newline='', encoding='utf-8') as f:
         pred_str = concatenated_pred_str.strip()
         label_str = normalizer(reference_text)
 
-        wer = metric_wer.compute(predictions=[pred_str], references=[label_str])
-        cer = metric_cer.compute(predictions=[pred_str], references=[label_str])
         char_N = len(pred_str.replace(" ", ""))
         word_N = len(pred_str.split())
+
+        all_transcriptions_str_per_class[lab] += " " + pred_str
+        all_expects_str_per_class[lab] += " " + label_str
+
+        wer = metric_wer.compute(predictions=[pred_str], references=[label_str])
+        cer = metric_cer.compute(predictions=[pred_str], references=[label_str])
+
+        # Store the WERs for the current batch
+        all_wer_per_class[lab].extend([wer])  # Add the current batch's WERs to the list
+        all_wN_per_class[lab].extend([word_N])  # Add the current batch's WERs to the list
+        all_cer_per_class[lab].extend([cer])  # Add the current batch's CERs to the list
+        all_cN_per_class[lab].extend([char_N])  # Add the current batch's CERs to the list
+        average_wer_per_class[lab] = np.mean(all_wer_per_class[lab])
+        average_cer_per_class[lab] = np.mean(all_cer_per_class[lab])
+
         writer.writerow([
             modified_path,
             lab,
@@ -190,16 +203,6 @@ for lab in range(params.label_count[params.dataset]) :
         wer_w_list.append(-1.0)
         cer_a_list.append(-1.0)
         cer_w_list.append(-1.0)
-print(wer_a_list, cer_a_list)
-print(wer_w_list, cer_w_list)
-print("final average_wer_per_class")
-print(*average_wer_per_class, sep='\n')
-print("final average_cer_per_class")
-print(*average_cer_per_class, sep='\n')
-print("global average_wer_per_class")
-print(*wer_a_list, sep='\n')
-print("global average_cer_per_class")
-print(*cer_a_list, sep='\n')
 print("average_wer_per_class")
 print(*wer_w_list, sep='\n')
 print("average_cer_per_class")
