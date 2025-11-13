@@ -37,7 +37,7 @@ else :
 
 #dataset_train = load_UASpeech_dataset(params.TRAIN_SPEAKERS, fn_kwargs)
 #dataset_test = load_UASpeech_dataset(params.TEST_SPEAKERS, fn_kwargs)
-dataset_testds = load_dataset_for_ASR_without_prepare(params.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, True)
+dataset_testds = load_dataset_for_ASR_without_prepare(params.SZEGEDYS, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, True)
 #test_loader = torch.utils.data.DataLoader(dataset, batch_size=params.per_device_train_batch_size)
 
 # Group files for concatenation
@@ -70,7 +70,7 @@ average_wer_per_class = []
 average_cer_per_class = []
 all_transcriptions_str_per_class = {}
 all_expects_str_per_class = {}
-for i in range(params.label_count[params.dataset]) :
+for i in range(params.label_count[params.SZEGEDYS]) :
     all_wer_per_class[i] = []
     all_wN_per_class[i] = []
     all_cer_per_class[i] = []
@@ -188,7 +188,7 @@ wer_a_list = []
 wer_w_list = []
 cer_a_list = []
 cer_w_list = []
-for lab in range(params.label_count[params.dataset]) :
+for lab in range(params.label_count[params.SZEGEDYS]) :
     if all_transcriptions_str_per_class[lab] != "" :
         wer_a_list.append(metric_wer.compute(predictions=[all_transcriptions_str_per_class[lab]], references=[all_expects_str_per_class[lab]]))
         cer_a_list.append(metric_cer.compute(predictions=[all_transcriptions_str_per_class[lab]], references=[all_expects_str_per_class[lab]]))

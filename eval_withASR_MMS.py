@@ -15,6 +15,7 @@ from utils import load_dataset_for_ASR_without_prepare
 DEVICE = torch.device("cuda")
 model_id = "facebook/mms-1b-fl102"
 parser = argparse.ArgumentParser(description="Evaluation with ASR.")
+parser.add_argument("dataset", metavar="dataset", type=str, help="Name of dataset.")
 parser.add_argument("wav_dir", metavar="wav-dir", type=Path, help="path to audio directory.")
 parser.add_argument("output_file", metavar="output-file", type=Path, help="path to output file.")
 args = parser.parse_args()
@@ -40,7 +41,7 @@ fn_kwargs = {"feature_extractor":  processor.feature_extractor,
 
 #dataset_train = load_UASpeech_dataset(params.TRAIN_SPEAKERS, fn_kwargs)
 #dataset_test = load_UASpeech_dataset(params.TEST_SPEAKERS, fn_kwargs)
-dataset_testds = load_dataset_for_ASR_without_prepare(params.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, True)
+dataset_testds = load_dataset_for_ASR_without_prepare(args.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, True)
 #test_loader = torch.utils.data.DataLoader(dataset, batch_size=params.per_device_train_batch_size)
 
 metric_wer = evaluate.load("wer")
@@ -53,7 +54,7 @@ average_wer_per_class = []
 average_cer_per_class = []
 all_transcriptions_str_per_class = {}
 all_expects_str_per_class = {}
-for i in range(params.label_count[params.dataset]) :
+for i in range(params.label_count[args.dataset]) :
     all_wer_per_class[i] = []
     all_wN_per_class[i] = []
     all_cer_per_class[i] = []
@@ -146,7 +147,7 @@ wer_a_list = []
 wer_w_list = []
 cer_a_list = []
 cer_w_list = []
-for lab in range(params.label_count[params.dataset]) :
+for lab in range(params.label_count[args.dataset]) :
     if all_transcriptions_str_per_class[lab] != "" :
         wer_a_list.append(metric_wer.compute(predictions=[all_transcriptions_str_per_class[lab]], references=[all_expects_str_per_class[lab]]))
         cer_a_list.append(metric_cer.compute(predictions=[all_transcriptions_str_per_class[lab]], references=[all_expects_str_per_class[lab]]))

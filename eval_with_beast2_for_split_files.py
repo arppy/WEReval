@@ -124,7 +124,7 @@ wer_a_list = []
 wer_w_list = []
 cer_a_list = []
 cer_w_list = []
-for lab in range(params.label_count[params.dataset]) :
+for lab in range(params.label_count[params.SZEGEDYS]) :
     if all_transcriptions_str_per_class[lab] != "" :
         wer_a_list.append(metric_wer.compute(predictions=[all_transcriptions_str_per_class[lab]], references=[all_expects_str_per_class[lab]]))
         cer_a_list.append(metric_cer.compute(predictions=[all_transcriptions_str_per_class[lab]], references=[all_expects_str_per_class[lab]]))

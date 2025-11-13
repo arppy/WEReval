@@ -191,7 +191,7 @@ all_cer_per_class = {}
 all_cN_per_class = {}
 average_wer_per_class = []
 average_cer_per_class = []
-for i in range(params.label_count[params.dataset]):
+for i in range(params.label_count[args.dataset]):
     all_wer_per_class[i] = []
     all_wN_per_class[i] = []
     all_cer_per_class[i] = []
@@ -242,7 +242,7 @@ with open(output_file, mode='w', newline='', encoding='utf-8') as f:
 
 wer_w_list = []
 cer_w_list = []
-for lab in range(params.label_count[params.dataset]) :
+for lab in range(params.label_count[args.dataset]) :
     if len(all_wN_per_class[lab])>0 :
         np_all_wer_per_lab = np.array(all_wer_per_class[lab])
         np_all_wN_per_lab = np.array(all_wN_per_class[lab])

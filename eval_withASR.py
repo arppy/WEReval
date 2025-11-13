@@ -20,6 +20,7 @@ DEVICE = accelerator.device
 CPU = torch.device('cpu')
 
 parser = argparse.ArgumentParser(description="Evaluation with ASR.")
+parser.add_argument("dataset", metavar="dataset", type=str, help="Name of dataset.")
 parser.add_argument("wav_dir", metavar="wav-dir", type=Path, help="path to audio directory.")
 parser.add_argument("output_file", metavar="output-file", type=Path, help="path to output file.")
 args = parser.parse_args()
@@ -52,7 +53,7 @@ fn_kwargs = {"feature_extractor":  processor.feature_extractor,
 
 #dataset_train = load_UASpeech_dataset(params.TRAIN_SPEAKERS, fn_kwargs)
 #dataset_test = load_UASpeech_dataset(params.TEST_SPEAKERS, fn_kwargs)
-dataset_testds = load_dataset_for_ASR(params.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, fn_kwargs, True)
+dataset_testds = load_dataset_for_ASR(args.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, fn_kwargs, True)
 #test_loader = torch.utils.data.DataLoader(dataset, batch_size=params.per_device_train_batch_size)
 
 data_collator = DataCollatorSpeechSeq2SeqWithPadding(processor=processor, decoder_start_token_id=model.config.decoder_start_token_id)
@@ -67,7 +68,7 @@ average_wer_per_class = []
 average_cer_per_class = []
 all_transcriptions_str_per_class = {}
 all_expects_str_per_class = {}
-for i in range(params.label_count[params.dataset]) :
+for i in range(params.label_count[args.dataset]) :
     all_wer_per_class[i] = []
     all_wN_per_class[i] = []
     all_cer_per_class[i] = []
@@ -138,7 +139,7 @@ wer_a_list = []
 wer_w_list = []
 cer_a_list = []
 cer_w_list = []
-for lab in range(params.label_count[params.dataset]) :
+for lab in range(params.label_count[args.dataset]) :
     if all_transcriptions_str_per_class[lab] != "" :
         wer_a_list.append(metric_wer.compute(predictions=[all_transcriptions_str_per_class[lab]], references=[all_expects_str_per_class[lab]]))
         cer_a_list.append(metric_cer.compute(predictions=[all_transcriptions_str_per_class[lab]], references=[all_expects_str_per_class[lab]]))
@@ -153,16 +154,6 @@ for lab in range(params.label_count[params.dataset]) :
         wer_w_list.append(-1.0)
         cer_a_list.append(-1.0)
         cer_w_list.append(-1.0)
-print(wer_a_list, cer_a_list)
-print(wer_w_list, cer_w_list)
-print("final average_wer_per_class")
-print(*average_wer_per_class, sep='\n')
-print("final average_cer_per_class")
-print(*average_cer_per_class, sep='\n')
-print("global average_wer_per_class")
-print(*wer_a_list, sep='\n')
-print("global average_cer_per_class")
-print(*cer_a_list, sep='\n')
 print("average_wer_per_class")
 print(*wer_w_list, sep='\n')
 print("average_cer_per_class")

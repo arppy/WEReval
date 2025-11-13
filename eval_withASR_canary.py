@@ -14,13 +14,18 @@ from utils import get_LaciControl_as_list, get_LaciDys_as_list, get_TrogoGenerat
 
 DEVICE = torch.device("cuda")
 parser = argparse.ArgumentParser(description="Evaluation with ASR.")
+parser.add_argument("dataset", metavar="dataset", type=str, help="Name of dataset.")
 parser.add_argument("wav_dir", metavar="wav-dir", type=Path, help="path to audio directory.")
 parser.add_argument("output_file", metavar="output-file", type=Path, help="path to output file.")
 args = parser.parse_args()
 output_file = Path(args.output_file)
 model = ASRModel.from_pretrained(model_name="nvidia/canary-1b-v2")
 model = model.to(DEVICE)
-if params.lang == "en" :
+if args.dataset in params.hungarian_datasets :
+    lang = "hu"
+else :
+    lang = "en"
+if lang== "en" :
     mapping_path = os.path.join(os.path.dirname("imports/"), "english.json")
     english_spelling_mapping = json.load(open(mapping_path))
     normalizer = EnglishTextNormalizer(english_spelling_mapping)
@@ -30,17 +35,17 @@ dataset_dir=args.wav_dir
 file_paths = []
 texts = []
 labels = []
-if params.dataset is params.TORGO_GENERATED:
+if args.dataset is params.TORGO_GENERATED:
     file_paths, texts, labels = get_TrogoGenerated_as_list(params.torgo_generated_dir)
-elif params.dataset is params.LACICON:
+elif args.dataset is params.LACICON:
     dataset_dir_final = params.laci_control_dir if dataset_dir == Path() else dataset_dir
     file_paths, texts, labels = get_LaciControl_as_list(dataset_dir_final)
-elif params.dataset is params.LACIDYS:
+elif args.dataset is params.LACIDYS:
     dataset_dir_final = params.laci_dys_dir if dataset_dir == Path() else dataset_dir
     file_paths, texts, labels = get_LaciDys_as_list(dataset_dir_final)
-elif params.dataset is params.SZEGEDYS:
+elif args.dataset is params.SZEGEDYS:
     file_paths, texts, labels = get_SzegedDys_as_list(dataset_dir)
-elif params.dataset is params.HUNDYS:
+elif args.dataset is params.HUNDYS:
     file_paths, texts, labels = get_HunDys_as_list(dataset_dir)
 
 metric_wer = evaluate.load("wer")
@@ -53,7 +58,7 @@ average_wer_per_class = []
 average_cer_per_class = []
 all_transcriptions_str_per_class = {}
 all_expects_str_per_class = {}
-for i in range(params.label_count[params.dataset]) :
+for i in range(params.label_count[args.dataset]) :
     all_wer_per_class[i] = []
     all_wN_per_class[i] = []
     all_cer_per_class[i] = []
@@ -113,7 +118,7 @@ wer_a_list = []
 wer_w_list = []
 cer_a_list = []
 cer_w_list = []
-for lab in range(params.label_count[params.dataset]) :
+for lab in range(params.label_count[args.dataset]) :
     if all_transcriptions_str_per_class[lab] != "" :
         wer_a_list.append(metric_wer.compute(predictions=[all_transcriptions_str_per_class[lab]], references=[all_expects_str_per_class[lab]]))
         cer_a_list.append(metric_cer.compute(predictions=[all_transcriptions_str_per_class[lab]], references=[all_expects_str_per_class[lab]]))
