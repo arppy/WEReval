@@ -116,19 +116,19 @@ def load_dataset_for_ASR_without_prepare(dataset_string, speakers, dataset_dir=P
             dataset = load_dataset("abnerh/TORGO-database", download_mode="reuse_cache_if_exists")["train"]
             dataset = dataset.filter(filter_Torgo_dataset)
         else :
-            if dataset_string is params.UASPEECH :
+            if dataset_string == params.UASPEECH :
                 file_paths, texts, labels = get_UASpeech_as_list(params.speakers_dict[speakers], params.uaspeech_dir)
-            elif dataset_string is params.TORGO_GENERATED:
+            elif dataset_string == params.TORGO_GENERATED:
                 file_paths, texts, labels = get_TrogoGenerated_as_list(params.torgo_generated_dir)
-            elif dataset_string is params.LACICON:
+            elif dataset_string == params.LACICON:
                 dataset_dir_final = params.laci_control_dir if dataset_dir == Path() else dataset_dir
                 file_paths, texts, labels = get_LaciControl_as_list(dataset_dir_final)
-            elif dataset_string is params.LACIDYS:
+            elif dataset_string == params.LACIDYS:
                 dataset_dir_final = params.laci_dys_dir if dataset_dir == Path() else dataset_dir
                 file_paths, texts, labels = get_LaciDys_as_list(dataset_dir_final)
-            elif dataset_string is params.SZEGEDYS:
+            elif dataset_string == params.SZEGEDYS:
                 file_paths, texts, labels = get_SzegedDys_as_list(dataset_dir)
-            elif dataset_string is params.HUNDYS:
+            elif dataset_string == params.HUNDYS:
                 file_paths, texts, labels = get_HunDys_as_list(dataset_dir)
             dataset = Dataset.from_dict({"audio": file_paths, "severity": labels, "sentence": texts}).cast_column("audio",
                 Audio(sampling_rate=params.SAMPLING_RATE))
