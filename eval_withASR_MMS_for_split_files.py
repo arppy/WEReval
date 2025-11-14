@@ -23,7 +23,11 @@ output_file = Path(args.output_file)
 processor = AutoProcessor.from_pretrained(model_id)
 model = Wav2Vec2ForCTC.from_pretrained(model_id)
 model = model.to(DEVICE)
-if params.lang == "en" :
+if args.dataset in params.hungarian_datasets :
+    lang = "hu"
+else :
+    lang = "en"
+if lang== "en" :
     processor.tokenizer.set_target_lang("eng")
     model.load_adapter("eng")
     mapping_path = os.path.join(os.path.dirname("imports/"), "english.json")

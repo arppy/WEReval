@@ -31,7 +31,11 @@ processor = WhisperProcessor.from_pretrained(params.whisper_arch, torch_dtype=pa
 model.config.forced_decoder_ids = None
 tokenizer = processor.tokenizer
 task_token_id = tokenizer.convert_tokens_to_ids("<|transcribe|>")
-if params.lang == "en" :
+if args.dataset in params.hungarian_datasets :
+    lang = "hu"
+else :
+    lang = "en"
+if lang== "en" :
     lang_token_id = tokenizer.convert_tokens_to_ids("<|en|>")
     model.generation_config.language = "english"
     mapping_path = os.path.join(os.path.dirname("imports/"), "english.json")
