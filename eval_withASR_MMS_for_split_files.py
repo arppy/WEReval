@@ -119,8 +119,8 @@ with open(output_file, mode='w', newline='', encoding='utf-8') as f:
         pred_str = concatenated_pred_str.strip()
         label_str = normalizer(reference_text)
 
-        char_N = len(pred_str.replace(" ", ""))
-        word_N = len(pred_str.split())
+        char_N = len(label_str.replace(" ", ""))
+        word_N = len(label_str.split())
 
         all_transcriptions_str_per_class[lab] += " " + pred_str
         all_expects_str_per_class[lab] += " " + label_str
@@ -160,8 +160,8 @@ with open(output_file, mode='w', newline='', encoding='utf-8') as f:
         pred_str = normalizer(pred_str)
         label_str = normalizer(reference_text)
 
-        char_N = len(pred_str.replace(" ", ""))
-        word_N = len(pred_str.split())
+        char_N = len(label_str.replace(" ", ""))
+        word_N = len(label_str.split())
 
         all_transcriptions_str_per_class[lab] += " " + pred_str
         all_expects_str_per_class[lab] += " " + label_str

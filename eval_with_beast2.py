@@ -132,8 +132,8 @@ if to_process:
 
                 # Compute metrics if successful
                 if success and pred_str is not None:
-                    word_N = len(pred_str.split())
-                    char_N = len(pred_str.replace(" ", ""))
+                    word_N = len(label_str.split())
+                    char_N = len(label_str.replace(" ", ""))
                     wer = metric_wer.compute(predictions=[pred_str], references=[label_str])
                     cer = metric_cer.compute(predictions=[pred_str], references=[label_str])
                 else:

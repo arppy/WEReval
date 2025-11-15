@@ -81,8 +81,8 @@ for prefix, group_file_paths in file_groups.items():
         concatenated_pred_str += " " + pred_str
     pred_str = concatenated_pred_str.strip()
 
-    char_N = len(pred_str.replace(" ", ""))
-    word_N = len(pred_str.split())
+    char_N = len(label_str.replace(" ", ""))
+    word_N = len(label_str.split())
 
     all_transcriptions_str_per_class[lab] += " " + pred_str
     all_expects_str_per_class[lab] += " " + label_str
@@ -103,8 +103,8 @@ for file_path in ungrouped_records:
     pred_str = transcriptions[file_path]['transcription']
     label_str = transcriptions[file_path]['expected_text']
 
-    char_N = len(pred_str.replace(" ", ""))
-    word_N = len(pred_str.split())
+    char_N = len(label_str.replace(" ", ""))
+    word_N = len(label_str.split())
 
     all_transcriptions_str_per_class[lab] += " " + pred_str
     all_expects_str_per_class[lab] += " " + label_str
