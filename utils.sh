@@ -11,5 +11,4 @@ patterns=("C_031" "C_033" "C_036")
 patterns=("C_040" "C_041" "C_042" "C_043" "C_048")
 
 patterns=("CF014 CM013 M001")
-zip -r HunDysSepFormerDNS4.zip $(for pattern in "${patterns[@]}"; do echo HunDysSepFormerDNS4_wav/${pattern}*; done)
 folder="HunDys_urhythmic_fine_wav"; { for pattern in "${patterns[@]}"; do printf '%s\n' "$folder"/${pattern}*; done; } | zip -@j $folder".zip"

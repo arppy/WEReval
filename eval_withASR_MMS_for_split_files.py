@@ -23,7 +23,7 @@ output_file = Path(args.output_file)
 processor = AutoProcessor.from_pretrained(model_id)
 model = Wav2Vec2ForCTC.from_pretrained(model_id)
 model = model.to(DEVICE)
-if args.dataset in params.hungarian_datasets :
+if params.SZEGEDYS in params.hungarian_datasets :
     lang = "hu"
 else :
     lang = "en"
