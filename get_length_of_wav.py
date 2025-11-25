@@ -17,7 +17,7 @@ for i in range(params.label_count[args.dataset]) :
 for i in range(0, len(wav_files)):
     wav_file = wav_files[i]
     wav_file_name_parts = wav_file.stem.split("_")
-    label = 0
+    label = 0   
     if args.dataset == params.HUNDYS :
         label = int(wav_file_name_parts[1]) - 1
     elif args.dataset == params.SZEGEDYS :
