@@ -7,9 +7,9 @@ import evaluate
 import inflect
 from dataclasses import dataclass
 from typing import Any, Dict, List, Union
-from datasets import Dataset, DatasetDict, Audio, load_from_disk, load_dataset
+from datasets import Dataset, Audio, load_dataset
 from torchaudio.transforms import SpeedPerturbation
-from jiwer import wer, cer, Compose, RemovePunctuation, ToLowerCase, RemoveWhiteSpace, RemoveMultipleSpaces
+from jiwer import Compose, RemovePunctuation, ToLowerCase, RemoveMultipleSpaces
 
 import params
 
@@ -109,29 +109,22 @@ def prepare_Torgo_dataset(batch, feature_extractor, tokenizer=None, augmentor=No
     return batch
 
 def load_dataset_for_ASR_without_prepare(dataset_string, speakers, dataset_dir=Path(), forced_recreate=False) :
-    if os.path.exists(params.processed_paths[speakers]) and not forced_recreate:
-        dataset = load_from_disk(params.processed_paths[speakers])
-    else :
-        if dataset_string is params.TORGO:
-            dataset = load_dataset("abnerh/TORGO-database", download_mode="reuse_cache_if_exists")["train"]
-            dataset = dataset.filter(filter_Torgo_dataset)
-        else :
-            if dataset_string == params.UASPEECH :
-                file_paths, texts, labels = get_UASpeech_as_list(params.speakers_dict[speakers], params.uaspeech_dir)
-            elif dataset_string == params.TORGO_GENERATED:
-                file_paths, texts, labels = get_TrogoGenerated_as_list(params.torgo_generated_dir)
-            elif dataset_string == params.LACICON:
-                dataset_dir_final = params.laci_control_dir if dataset_dir == Path() else dataset_dir
-                file_paths, texts, labels = get_LaciControl_as_list(dataset_dir_final)
-            elif dataset_string == params.LACIDYS:
-                dataset_dir_final = params.laci_dys_dir if dataset_dir == Path() else dataset_dir
-                file_paths, texts, labels = get_LaciDys_as_list(dataset_dir_final)
-            elif dataset_string == params.SZEGEDYS:
-                file_paths, texts, labels = get_SzegedDys_as_list(dataset_dir)
-            elif dataset_string == params.HUNDYS:
-                file_paths, texts, labels = get_HunDys_as_list(dataset_dir)
-            dataset = Dataset.from_dict({"audio": file_paths, "severity": labels, "sentence": texts}).cast_column("audio",
-                Audio(sampling_rate=params.SAMPLING_RATE))
+    if dataset_string == params.UASPEECH :
+        file_paths, texts, labels = get_UASpeech_as_list(params.speakers_dict[speakers], params.uaspeech_dir)
+    elif dataset_string == params.TORGO:
+        file_paths, texts, labels = get_TrogoGenerated_as_list(params.torgo_dir)
+    elif dataset_string == params.LACICON:
+        dataset_dir_final = params.laci_control_dir if dataset_dir == Path() else dataset_dir
+        file_paths, texts, labels = get_LaciControl_as_list(dataset_dir_final)
+    elif dataset_string == params.LACIDYS:
+        dataset_dir_final = params.laci_dys_dir if dataset_dir == Path() else dataset_dir
+        file_paths, texts, labels = get_LaciDys_as_list(dataset_dir_final)
+    elif dataset_string == params.SZEGEDYS:
+        file_paths, texts, labels = get_SzegedDys_as_list(dataset_dir)
+    elif dataset_string == params.HUNDYS:
+        file_paths, texts, labels = get_HunDys_as_list(dataset_dir)
+    dataset = Dataset.from_dict({"audio": file_paths, "severity": labels, "sentence": texts}).cast_column("audio",
+        Audio(sampling_rate=params.SAMPLING_RATE))
     return dataset
 
 def load_dataset_for_ASR(dataset_string, speakers, dataset_dir=Path(), fn_kwargs=None, forced_recreate=False) :
@@ -314,6 +307,23 @@ def get_SzegedDys_as_list(wav_directory_path) :
                 labels.append(label)
     return file_paths, texts, labels
 
+Torgo_label_to_idx = {
+    'F01': 0,
+    'F03': 1,
+    'F04': 2,
+    'FC01': 3,
+    'FC02': 4,
+    'FC03': 5,
+    'M01': 6,
+    'M02': 7,
+    'M03': 8,
+    'M04': 9,
+    'M05': 10,
+    'MC01': 11,
+    'MC02': 12,
+    'MC03': 13,
+    'MC04': 14
+}
 
 def get_TrogoGenerated_as_list(data_dir) :
     file_paths_dict = {}
@@ -328,10 +338,7 @@ def get_TrogoGenerated_as_list(data_dir) :
             file_paths.append(file_paths_dict[element['audio']['path']])
             texts.append(element['transcription'].capitalize() + '.')
             uid = element["audio"]['path'].split("_")[0]
-            if 'C' in uid:
-                labels.append(0)
-            else:
-                labels.append(params.TORGO_dys_speaker_dict[uid])
+            labels.append(Torgo_label_to_idx[uid])
     return file_paths, texts, labels
 
 

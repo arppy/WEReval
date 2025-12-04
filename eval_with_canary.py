@@ -35,8 +35,8 @@ dataset_dir=args.wav_dir
 file_paths = []
 texts = []
 labels = []
-if args.dataset is params.TORGO_GENERATED:
-    file_paths, texts, labels = get_TrogoGenerated_as_list(params.torgo_generated_dir)
+if args.dataset is params.TORGO:
+    file_paths, texts, labels = get_TrogoGenerated_as_list(params.torgo_dir)
 elif args.dataset is params.LACICON:
     dataset_dir_final = params.laci_control_dir if dataset_dir == Path() else dataset_dir
     file_paths, texts, labels = get_LaciControl_as_list(dataset_dir_final)

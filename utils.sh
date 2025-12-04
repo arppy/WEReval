@@ -12,3 +12,7 @@ patterns=("C_040" "C_041" "C_042" "C_043" "C_048")
 
 patterns=("CF014 CM013 M001")
 folder="HunDys_urhythmic_fine_wav"; { for pattern in "${patterns[@]}"; do printf '%s\n' "$folder"/${pattern}*; done; } | zip -@j $folder".zip"
+
+
+for f in Torgo/Torgo-wavlm/*; do base=$(basename "$f"); echo "${base%%_*}" ; done | sort -u
+#F01 F03 F04 FC01 FC02 FC03 M01 M02 M03 M04 M05 MC01 MC02 MC03 MC04
