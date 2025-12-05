@@ -112,7 +112,8 @@ def load_dataset_for_ASR_without_prepare(dataset_string, speakers, dataset_dir=P
     if dataset_string == params.UASPEECH :
         file_paths, texts, labels = get_UASpeech_as_list(params.speakers_dict[speakers], params.uaspeech_dir)
     elif dataset_string == params.TORGO:
-        file_paths, texts, labels = get_TrogoGenerated_as_list(params.torgo_dir)
+        dataset_dir_final = params.torgo_dir if dataset_dir == Path() else dataset_dir
+        file_paths, texts, labels = get_TrogoGenerated_as_list(dataset_dir_final)
     elif dataset_string == params.LACICON:
         dataset_dir_final = params.laci_control_dir if dataset_dir == Path() else dataset_dir
         file_paths, texts, labels = get_LaciControl_as_list(dataset_dir_final)
