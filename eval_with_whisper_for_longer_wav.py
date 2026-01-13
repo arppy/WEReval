@@ -63,7 +63,8 @@ output_file = Path(args.output_file)
 # STEP 1: Load existing results (if file exists)
 # ----------------------------
 existing_results = {}
-if output_file.exists():
+file_is_new = not output_file.exists()
+if not file_is_new:
     with open(output_file, mode='r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -85,18 +86,11 @@ print(f"Files to process/retry: {len(to_process)}")
 metric_wer = evaluate.load("wer")
 metric_cer = evaluate.load("cer")
 if to_process:
-    with open(output_file, mode='w', newline='', encoding='utf-8') as f:
+    with open(output_file, mode='a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
-        writer.writerow([
-            "file_path",
-            "class_label",
-            "expected_text",
-            "transcription",
-            "wer",
-            "cer",
-            "word_count",
-            "char_count"
-        ])
+        if file_is_new:
+            writer.writerow(["file_path", "class_label", "expected_text", "transcription", "wer", "cer", "word_count", "char_count"])
+
         for idx, test_record in enumerate(to_process):
             audio_array = test_record["audio"]["array"]
             orig_sr = test_record["audio"]["sampling_rate"]
