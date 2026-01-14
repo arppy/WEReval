@@ -120,14 +120,10 @@ for file_path in ungrouped_records:
     average_wer_per_class[lab] = np.mean(all_wer_per_class[lab])
     average_cer_per_class[lab] = np.mean(all_cer_per_class[lab])
 
-wer_a_list = []
 wer_w_list = []
-cer_a_list = []
 cer_w_list = []
 for lab in range(params.label_count[params.SZEGEDYS]) :
-    if all_transcriptions_str_per_class[lab] != "" :
-        wer_a_list.append(metric_wer.compute(predictions=[all_transcriptions_str_per_class[lab]], references=[all_expects_str_per_class[lab]]))
-        cer_a_list.append(metric_cer.compute(predictions=[all_transcriptions_str_per_class[lab]], references=[all_expects_str_per_class[lab]]))
+    if all_wer_per_class[lab]: 
         np_all_wer_per_lab = np.array(all_wer_per_class[lab])
         np_all_wN_per_lab = np.array(all_wN_per_class[lab])
         np_all_cer_per_lab = np.array(all_cer_per_class[lab])
@@ -135,9 +131,7 @@ for lab in range(params.label_count[params.SZEGEDYS]) :
         wer_w_list.append(np.average(np_all_wer_per_lab, weights=np_all_wN_per_lab))
         cer_w_list.append(np.average(np_all_cer_per_lab, weights=np_all_cN_per_lab))
     else :
-        wer_a_list.append(-1.0)
         wer_w_list.append(-1.0)
-        cer_a_list.append(-1.0)
         cer_w_list.append(-1.0)
 print("average_wer_per_class")
 print(*wer_w_list, sep='\n')
