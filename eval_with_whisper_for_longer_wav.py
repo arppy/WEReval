@@ -68,7 +68,7 @@ if not file_is_new:
     with open(output_file, mode='r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            existing_results[row["file_path"]] = row
+            existing_results[Path(row["file_path"]).name] = row
     print(f"Loaded {len(existing_results)} existing results from {output_file}")
 else:
     print("No existing results. Starting fresh.")
@@ -77,7 +77,7 @@ to_process = []
 results = []
 for i, test_record in enumerate(dataset_testds):
     fp_str = str(test_record['audio']['path'])
-    existing = existing_results.get(fp_str)
+    existing = existing_results.get(Path(fp_str).name)
     if existing is None :
         to_process.append(test_record)
     else :
