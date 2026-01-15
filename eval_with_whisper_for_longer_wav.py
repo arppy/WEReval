@@ -83,6 +83,7 @@ for i, test_record in enumerate(dataset_testds):
     else :
         results.append(existing)
 print(f"Files to process/retry: {len(to_process)}")
+print(f"Files that have already proceed: {len(results)}")
 metric_wer = evaluate.load("wer")
 metric_cer = evaluate.load("cer")
 if to_process:
