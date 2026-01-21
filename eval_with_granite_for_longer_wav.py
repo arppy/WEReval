@@ -6,10 +6,8 @@ import torch
 import evaluate
 import argparse
 import csv
-from transformers import (WhisperProcessor, WhisperTokenizer, WhisperForConditionalGeneration,
-                          Seq2SeqTrainingArguments, Seq2SeqTrainer)
 from transformers.models.whisper.english_normalizer import EnglishTextNormalizer, BasicTextNormalizer
-
+from transformers import AutoProcessor, AutoModelForSpeechSeq2Seq
 from accelerate import Accelerator
 
 import params
@@ -19,43 +17,27 @@ accelerator = Accelerator()
 DEVICE = accelerator.device
 CPU = torch.device('cpu')
 
-parser = argparse.ArgumentParser(description="Evaluation with ASR.")
+parser = argparse.ArgumentParser(description="Evaluation using IBM's Granite Speech ASR.")
 parser.add_argument("dataset", metavar="dataset", type=str, help="Name of dataset.")
 parser.add_argument("wav_dir", metavar="wav-dir", type=Path, help="path to audio directory.")
 parser.add_argument("output_file", metavar="output-file", type=Path, help="path to output file.")
 args = parser.parse_args()
-model = WhisperForConditionalGeneration.from_pretrained(params.whisper_arch, torch_dtype=params.torch_dtype)
-model = model.to(DEVICE)
-processor = WhisperProcessor.from_pretrained(params.whisper_arch, torch_dtype=params.torch_dtype)
+model_name = "ibm-granite/granite-speech-3.3-8b"
+processor = AutoProcessor.from_pretrained(model_name)
 tokenizer = processor.tokenizer
-task_token_id = tokenizer.convert_tokens_to_ids("<|transcribe|>")
-if args.dataset in params.hungarian_datasets :
-    lang = "hu"
-else :
-    lang = "en"
-if lang== "en" :
-    lang_token_id = tokenizer.convert_tokens_to_ids("<|en|>")
-    model.generation_config.language = "english"
-    mapping_path = os.path.join(os.path.dirname("imports/"), "english.json")
-    english_spelling_mapping = json.load(open(mapping_path))
-    normalizer = EnglishTextNormalizer(english_spelling_mapping)
-else :
-    lang_token_id = tokenizer.convert_tokens_to_ids("<|hu|>")
-    model.generation_config.language = "hungarian"
-    normalizer = BasicTextNormalizer()
+model = AutoModelForSpeechSeq2Seq.from_pretrained(model_name, device_map=DEVICE, torch_dtype=torch.bfloat16)
+model = model.to(DEVICE)
+prompt = "<|audio|>transcribe"
 
-model.config.forced_decoder_ids = [ (1, lang_token_id), (2, task_token_id) ]
-model.generation_config.task = "transcribe"
-#augmentor = SpeedAugmentation(params.SAMPLING_RATE, params.speed_factor)
+mapping_path = os.path.join(os.path.dirname("imports/"), "english.json")
+english_spelling_mapping = json.load(open(mapping_path))
+normalizer = EnglishTextNormalizer(english_spelling_mapping)
 
 fn_kwargs = {"feature_extractor":  processor.feature_extractor,
              "tokenizer": processor.tokenizer,
              "augmentor": None}
 
-#dataset_train = load_UASpeech_dataset(params.TRAIN_SPEAKERS, fn_kwargs)
-#dataset_test = load_UASpeech_dataset(params.TEST_SPEAKERS, fn_kwargs)
 dataset_testds = load_dataset_for_ASR_without_prepare(args.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, True)
-#test_loader = torch.utils.data.DataLoader(dataset, batch_size=params.per_device_train_batch_size)
 
 output_file = Path(args.output_file)
 # ----------------------------
@@ -115,18 +97,23 @@ if to_process:
                 # Now chunk is guaranteed to be exactly 30s
                 assert len(chunk) == params.CHUNK_SAMPLES, f"Chunk {i} has {len(chunk)} samples!"
 
-                # Process with Whisper
-                input_features = processor(
-                    chunk,
-                    sampling_rate=params.SAMPLING_RATE,
-                    return_tensors="pt"
-                ).input_features.to(params.torch_dtype).to(DEVICE)
+                # 1. Prepare inputs
+                model_inputs = processor(text=prompt, audio=chunk, sampling_rate=16000, return_tensors="pt").to(DEVICE)
 
+                # 2. Get input length to know where to cut
+                num_input_tokens = model_inputs["input_ids"].shape[-1]
+
+                # 3. Generate
                 with torch.no_grad():
-                    pred_ids = model.generate(input_features)[0]
+                    model_outputs = model.generate(**model_inputs, max_new_tokens=256, do_sample=False, num_beams=1)
+                # 4. Slice the output tensor to get ONLY the new transcription tokens
+                # This ignores everything before the 'assistant' role starts
+                new_tokens = model_outputs[:, num_input_tokens:]
 
-                pred_str = processor.tokenizer.decode(pred_ids, skip_special_tokens=True)
-                pred_str = normalizer(pred_str)
+                # 5. Decode just the new tokens
+                chunk_text = processor.batch_decode(new_tokens, skip_special_tokens=True)[0]
+
+                pred_str = normalizer(chunk_text.strip())
                 chunk_predictions.append(pred_str)
 
             # Concatenate all predictions
