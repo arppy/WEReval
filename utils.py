@@ -103,7 +103,7 @@ def prepare_Torgo_dataset(batch, feature_extractor, tokenizer=None, augmentor=No
         batch['severity'] = params.TORGO_dys_speaker_dict[uid]
     # encode target text to label ids
     batch['uid'] = uid
-    batch['sentence'] = batch['transcription'].capitalize() + '.'
+    batch['sentence'] = batch['transcription']
     if tokenizer is not None :
         batch["labels"] = tokenizer(batch['sentence']).input_ids
     return batch
