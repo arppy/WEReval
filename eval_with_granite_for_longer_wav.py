@@ -107,7 +107,7 @@ if to_process:
                 new_tokens = model_outputs[:, num_input_tokens:]
 
                 # 5. Decode just the new tokens
-                chunk_text = processor.batch_decode(new_tokens, skip_special_tokens=True)[0]
+                chunk_text = tokenizer.batch_decode(new_tokens, skip_special_tokens=True)[0]
 
                 pred_str = normalizer(chunk_text.strip())
                 chunk_predictions.append(pred_str)
