@@ -27,7 +27,11 @@ processor = AutoProcessor.from_pretrained(model_name)
 tokenizer = processor.tokenizer
 model = AutoModelForSpeechSeq2Seq.from_pretrained(model_name, device_map=DEVICE, torch_dtype=torch.bfloat16)
 model = model.to(DEVICE)
-prompt = "<|audio|>transcribe"
+
+system_prompt = "You are a specialized speech-to-text transcription engine."
+user_prompt = "<|audio|>Transcribe the speech."
+chat = [ {"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt},]
+prompt = tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True)
 
 mapping_path = os.path.join(os.path.dirname("imports/"), "english.json")
 english_spelling_mapping = json.load(open(mapping_path))
