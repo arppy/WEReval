@@ -28,7 +28,12 @@ tokenizer = processor.tokenizer
 model = AutoModelForSpeechSeq2Seq.from_pretrained(model_name, device_map=DEVICE, torch_dtype=torch.bfloat16)
 model = model.to(DEVICE)
 
-system_prompt = "You are an accurate ASR system. Output only the transcribed text from the audio, with no introductory remarks or closing comments."
+system_prompt = (
+    "You are an accurate ASR system."
+    "Output only the transcribed text from the audio. "
+    "No introductory remarks or closing comments. "
+    "Write all numbers as full words (e.g., 'five' not '5')."
+)
 user_prompt = "<|audio|>Transcribe the speech."
 chat = [ {"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt},]
 prompt = tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True)
