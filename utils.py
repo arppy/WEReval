@@ -337,7 +337,7 @@ def get_TrogoGenerated_as_list(data_dir) :
     for element in dataset :
         if element['audio']['path'] in file_paths_dict :
             file_paths.append(file_paths_dict[element['audio']['path']])
-            texts.append(element['transcription'].capitalize() + '.')
+            texts.append(element['transcription'])
             uid = element["audio"]['path'].split("_")[0]
             labels.append(Torgo_label_to_idx[uid])
     return file_paths, texts, labels
