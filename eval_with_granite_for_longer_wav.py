@@ -6,7 +6,6 @@ import torch
 import evaluate
 import argparse
 import csv
-from transformers.models.whisper.english_normalizer import EnglishTextNormalizer, BasicTextNormalizer
 from transformers import AutoProcessor, AutoModelForSpeechSeq2Seq
 from accelerate import Accelerator
 
@@ -40,7 +39,6 @@ prompt = tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prom
 
 mapping_path = os.path.join(os.path.dirname("imports/"), "english.json")
 english_spelling_mapping = json.load(open(mapping_path))
-normalizer = EnglishTextNormalizer(english_spelling_mapping)
 
 dataset_testds = load_dataset_for_ASR_without_prepare(args.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, True)
 
@@ -118,12 +116,12 @@ if to_process:
                 # 5. Decode just the new tokens
                 chunk_text = tokenizer.batch_decode(new_tokens, skip_special_tokens=True)[0]
 
-                pred_str = normalizer(chunk_text.strip())
+                pred_str = chunk_text.strip()
                 chunk_predictions.append(pred_str)
 
             # Concatenate all predictions
             pred_str = " ".join(chunk_predictions).strip()
-            label_str = normalizer(reference_text)
+            label_str = reference_text
 
             lab = test_record['severity']
 
