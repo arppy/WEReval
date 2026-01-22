@@ -94,7 +94,7 @@ if to_process:
                 assert len(chunk) == params.CHUNK_SAMPLES, f"Chunk {i} has {len(chunk)} samples!"
 
                 # 1. Prepare inputs
-                model_inputs = processor(text=prompt, audio=chunk, sampling_rate=16000, return_tensors="pt").to(DEVICE)
+                model_inputs = processor(text=prompt, audio=chunk, return_tensors="pt").to(DEVICE)
 
                 # 2. Get input length to know where to cut
                 num_input_tokens = model_inputs["input_ids"].shape[-1]
