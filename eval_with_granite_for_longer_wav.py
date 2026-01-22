@@ -33,10 +33,6 @@ mapping_path = os.path.join(os.path.dirname("imports/"), "english.json")
 english_spelling_mapping = json.load(open(mapping_path))
 normalizer = EnglishTextNormalizer(english_spelling_mapping)
 
-fn_kwargs = {"feature_extractor":  processor.feature_extractor,
-             "tokenizer": processor.tokenizer,
-             "augmentor": None}
-
 dataset_testds = load_dataset_for_ASR_without_prepare(args.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, True)
 
 output_file = Path(args.output_file)
