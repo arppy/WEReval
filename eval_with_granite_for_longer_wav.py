@@ -30,7 +30,7 @@ model = model.to(DEVICE)
 
 system_prompt = (
     "You are an accurate ASR system."
-    "Output only the transcribed text from the audio. "
+    "Output only the transcribed English text from the audio. "
     "No introductory remarks or closing comments. "
     "Write all numbers as full words (e.g., 'five' not '5')."
 )
