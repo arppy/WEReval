@@ -83,13 +83,14 @@ if to_process:
             severity = test_record["severity"]
 
             total_samples = len(audio_array)
-            num_chunks = int(np.ceil(total_samples / params.CHUNK_SAMPLES))
-
+            num_chunks = int(np.floor(total_samples / params.CHUNK_SAMPLES))
             chunk_predictions = []
-
             for i in range(num_chunks):
                 start = i * params.CHUNK_SAMPLES
-                end = start + params.CHUNK_SAMPLES
+                if i == num_chunks - 1:
+                    end = total_samples
+                else:
+                    end = start + params.CHUNK_SAMPLES
                 chunk = audio_array[start:end]
 
                 # 1. Prepare inputs
