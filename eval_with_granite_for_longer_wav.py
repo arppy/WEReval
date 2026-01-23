@@ -92,14 +92,6 @@ if to_process:
                 end = start + params.CHUNK_SAMPLES
                 chunk = audio_array[start:end]
 
-                # ✅ Pad with silence (zeros) if shorter than 30s
-                if len(chunk) < params.CHUNK_SAMPLES:
-                    padding = np.zeros(params.CHUNK_SAMPLES - len(chunk), dtype=chunk.dtype)
-                    chunk = np.concatenate([chunk, padding])
-
-                # Now chunk is guaranteed to be exactly 30s
-                assert len(chunk) == params.CHUNK_SAMPLES, f"Chunk {i} has {len(chunk)} samples!"
-
                 # 1. Prepare inputs
                 model_inputs = processor(text=prompt, audio=chunk, return_tensors="pt").to(DEVICE)
 
