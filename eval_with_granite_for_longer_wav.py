@@ -111,6 +111,7 @@ if to_process:
                 pred_str = chunk_text.strip()
                 chunk_predictions.append(pred_str)
 
+                i = end
             # Concatenate all predictions
             pred_str = " ".join(chunk_predictions).strip()
             label_str = reference_text
@@ -143,7 +144,6 @@ if to_process:
                 word_N,
                 char_N
             ])
-            i = end
 all_wer_per_class = {}
 all_wN_per_class = {}
 all_cer_per_class = {}
