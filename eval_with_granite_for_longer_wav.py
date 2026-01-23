@@ -59,7 +59,7 @@ else:
 
 to_process = []
 results = []
-for i, test_record in enumerate(dataset_testds):
+for j, test_record in enumerate(dataset_testds):
     fp_str = str(test_record['audio']['path'])
     existing = existing_results.get(Path(fp_str).name)
     if existing is None :
@@ -82,15 +82,14 @@ if to_process:
             reference_text = test_record["sentence"]
             severity = test_record["severity"]
 
+            i = 0
             total_samples = len(audio_array)
-            num_chunks = int(np.floor(total_samples / params.CHUNK_SAMPLES))
             chunk_predictions = []
-            for i in range(num_chunks):
-                start = i * params.CHUNK_SAMPLES
-                if i == num_chunks - 1:
+            while i < total_samples:
+                start = i
+                end = i + params.CHUNK_SAMPLES
+                if (total_samples - end) < params.CHUNK_SAMPLES:
                     end = total_samples
-                else:
-                    end = start + params.CHUNK_SAMPLES
                 chunk = audio_array[start:end]
 
                 # 1. Prepare inputs
@@ -144,7 +143,7 @@ if to_process:
                 word_N,
                 char_N
             ])
-
+            i = end
 all_wer_per_class = {}
 all_wN_per_class = {}
 all_cer_per_class = {}
