@@ -7,8 +7,8 @@ import evaluate
 import argparse
 import csv
 from transformers import AutoProcessor, AutoModelForSpeechSeq2Seq
+from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 from accelerate import Accelerator
-
 import params
 from utils import load_dataset_for_ASR_without_prepare
 
@@ -24,6 +24,7 @@ args = parser.parse_args()
 model_name = "ibm-granite/granite-speech-3.3-8b"
 processor = AutoProcessor.from_pretrained(model_name)
 tokenizer = processor.tokenizer
+normalizer = BasicTextNormalizer()
 model = AutoModelForSpeechSeq2Seq.from_pretrained(model_name, device_map=DEVICE, torch_dtype=torch.bfloat16)
 model = model.to(DEVICE)
 
@@ -108,13 +109,13 @@ if to_process:
                 # 5. Decode just the new tokens
                 chunk_text = tokenizer.batch_decode(new_tokens, skip_special_tokens=True)[0]
 
-                pred_str = chunk_text.strip()
+                pred_str = normalizer(chunk_text.strip())
                 chunk_predictions.append(pred_str)
 
                 i = end
             # Concatenate all predictions
             pred_str = " ".join(chunk_predictions).strip()
-            label_str = reference_text
+            label_str = normalizer(reference_text)
 
             lab = test_record['severity']
 
