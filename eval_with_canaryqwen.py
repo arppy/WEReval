@@ -25,12 +25,6 @@ args = parser.parse_args()
 normalizer = BasicTextNormalizer()
 model = SALM.from_pretrained('nvidia/canary-qwen-2.5b')
 
-system_prompt = (
-    "You are an accurate ASR system."
-    "Output only the transcribed English text from the audio. "
-    "No introductory remarks or closing comments. "
-    "Write all numbers as full words (e.g., 'five' not '5')."
-)
 user_prompt = f"Transcribe the following: {model.audio_locator_tag}"
 
 mapping_path = os.path.join(os.path.dirname("imports/"), "english.json")
@@ -77,8 +71,7 @@ if to_process:
             reference_text = test_record["sentence"]
             severity = test_record["severity"]
 
-            prompt = [{"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt, "audio": [test_record['audio']['path']]}, ]
+            prompt = [{"role": "user", "content": user_prompt, "audio": [test_record['audio']['path']]}, ]
             answer_ids = model.generate(prompts=[prompt], max_new_tokens=128,)
             text = model.tokenizer.ids_to_text(answer_ids[0].cpu())
 
