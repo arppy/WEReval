@@ -84,9 +84,9 @@ if to_process:
                     audio_to_process = [test_record['audio']['path']]
                 else:
                     chunk = audio_array[start:end]
-                    temp_chunk_path = f"temp_chunk_{i}.wav"
+                    temp_chunk_path = Path(f"temp_chunk_{i}.wav")
                     sf.write(temp_chunk_path, chunk, params.SAMPLE_RATE)
-                    audio_to_process = [temp_chunk_path]
+                    audio_to_process = [str(temp_chunk_path)]
 
                 prompt = [{"role": "user", "content": user_prompt, "audio": audio_to_process}, ]
                 answer_ids = model.generate(prompts=[prompt], max_new_tokens=128, )
@@ -94,6 +94,9 @@ if to_process:
 
                 text_norm_strip = normalizer(text.strip())
                 chunk_predictions.append(text_norm_strip)
+
+                if temp_chunk_path and temp_chunk_path.exists():
+                    temp_chunk_path.unlink()  # This is the pathlib way to delete files
                 i = end
             # Concatenate all predictions
             pred_str = " ".join(chunk_predictions).strip()
