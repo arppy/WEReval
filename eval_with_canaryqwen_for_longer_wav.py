@@ -75,6 +75,7 @@ if to_process:
             total_samples = len(audio_array)
             chunk_predictions = []
             while i < total_samples:
+                temp_chunk_path = None
                 start = i
                 end = i + params.CHUNK_SAMPLES
                 if (total_samples - end) < params.CHUNK_SAMPLES:
