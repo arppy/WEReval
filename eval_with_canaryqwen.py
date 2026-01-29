@@ -24,7 +24,7 @@ args = parser.parse_args()
 
 normalizer = BasicTextNormalizer()
 model = SALM.from_pretrained('nvidia/canary-qwen-2.5b')
-
+model = model.to(DEVICE)
 user_prompt = f"Transcribe the following: {model.audio_locator_tag}"
 
 mapping_path = os.path.join(os.path.dirname("imports/"), "english.json")
