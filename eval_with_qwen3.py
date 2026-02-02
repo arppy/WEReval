@@ -1,0 +1,153 @@
+import os
+from pathlib import Path
+import json
+import numpy as np
+import torch
+import evaluate
+import argparse
+import csv
+from transformers.models.whisper.english_normalizer import BasicTextNormalizer
+from accelerate import Accelerator
+from qwen_asr import Qwen3ASRModel
+import params
+from utils import load_dataset_for_ASR_without_prepare
+
+accelerator = Accelerator()
+DEVICE = accelerator.device
+CPU = torch.device('cpu')
+
+parser = argparse.ArgumentParser(description="Evaluation using IBM's Granite Speech ASR.")
+parser.add_argument("dataset", metavar="dataset", type=str, help="Name of dataset.")
+parser.add_argument("wav_dir", metavar="wav-dir", type=Path, help="path to audio directory.")
+parser.add_argument("output_file", metavar="output-file", type=Path, help="path to output file.")
+args = parser.parse_args()
+
+normalizer = BasicTextNormalizer()
+model = Qwen3ASRModel.from_pretrained(
+    "Qwen/Qwen3-ASR-1.7B",
+    dtype=torch.bfloat16,
+    device_map=DEVICE,
+    # attn_implementation="flash_attention_2",
+    max_inference_batch_size=-1, # Batch size limit for inference. -1 means unlimited. Smaller values can help avoid OOM.
+    max_new_tokens=1024, # Maximum number of tokens to generate. Set a larger value for long audio input.
+)
+
+mapping_path = os.path.join(os.path.dirname("imports/"), "english.json")
+english_spelling_mapping = json.load(open(mapping_path))
+
+dataset_testds = load_dataset_for_ASR_without_prepare(args.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, True)
+
+output_file = Path(args.output_file)
+# ----------------------------
+# STEP 1: Load existing results (if file exists)
+# ----------------------------
+existing_results = {}
+file_is_new = not output_file.exists()
+if not file_is_new:
+    with open(output_file, mode='r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            existing_results[Path(row["file_path"]).name] = row
+    print(f"Loaded {len(existing_results)} existing results from {output_file}")
+else:
+    print("No existing results. Starting fresh.")
+
+to_process = []
+results = []
+for j, test_record in enumerate(dataset_testds):
+    fp_str = str(test_record['audio']['path'])
+    existing = existing_results.get(Path(fp_str).name)
+    if existing is None :
+        to_process.append(test_record)
+    else :
+        results.append(existing)
+print(f"Files to process/retry: {len(to_process)}")
+print(f"Files that have already proceed: {len(results)}")
+metric_wer = evaluate.load("wer")
+metric_cer = evaluate.load("cer")
+if to_process:
+    with open(output_file, mode='a', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        if file_is_new:
+            writer.writerow(["file_path", "class_label", "expected_text", "transcription", "wer", "cer", "word_count", "char_count"])
+
+        for idx, test_record in enumerate(to_process):
+            orig_sr = test_record["audio"]["sampling_rate"]
+            reference_text = test_record["sentence"]
+            severity = test_record["severity"]
+
+            results = model.transcribe(
+                audio=test_record['audio']['path'],
+                language="English",
+            )
+            text = results[0].text
+
+            pred_str = normalizer(text.strip())
+            label_str = normalizer(reference_text)
+
+            lab = test_record['severity']
+
+            char_N = len(label_str.replace(" ", ""))
+            word_N = len(label_str.split())
+
+            wer = metric_wer.compute(predictions=[pred_str], references=[label_str])
+            cer = metric_cer.compute(predictions=[pred_str], references=[label_str])
+
+            results.append( {
+                "file_path": str(test_record['audio']['path']),
+                "class_label": str(lab),
+                "expected_text": label_str,
+                "transcription": pred_str,
+                "wer": str(wer),
+                "cer": str(cer),
+                "word_count": str(word_N),
+                "char_count": str(char_N)
+            })
+            writer.writerow([
+                test_record['audio']['path'],
+                lab,
+                label_str,
+                pred_str,
+                wer,
+                cer,
+                word_N,
+                char_N
+            ])
+all_wer_per_class = {}
+all_wN_per_class = {}
+all_cer_per_class = {}
+all_cN_per_class = {}
+for i in range(params.label_count[args.dataset]) :
+    all_wer_per_class[i] = []
+    all_wN_per_class[i] = []
+    all_cer_per_class[i] = []
+    all_cN_per_class[i] = []
+for idx, row in enumerate(results):
+    lab = int(row["class_label"])
+    wer = float(row["wer"])
+    cer = float(row["cer"])
+    word_N = len(row["expected_text"].split())
+    char_N = len(row["expected_text"].replace(" ", ""))
+    all_wer_per_class[lab].extend([wer])  # Add the current batch's WERs to the list
+    all_wN_per_class[lab].extend([word_N])  # Add the current batch's WERs to the list
+    all_cer_per_class[lab].extend([cer])  # Add the current batch's CERs to the list
+    all_cN_per_class[lab].extend([char_N])  # Add the current batch's CERs to the list
+
+wer_w_list = []
+cer_w_list = []
+for lab in range(params.label_count[args.dataset]) :
+    if all_wer_per_class[lab]:
+        np_all_wer_per_lab = np.array(all_wer_per_class[lab])
+        np_all_wN_per_lab = np.array(all_wN_per_class[lab])
+        np_all_cer_per_lab = np.array(all_cer_per_class[lab])
+        np_all_cN_per_lab = np.array(all_cN_per_class[lab])
+        wer_w_list.append(np.average(np_all_wer_per_lab, weights=np_all_wN_per_lab))
+        cer_w_list.append(np.average(np_all_cer_per_lab, weights=np_all_cN_per_lab))
+    else :
+        wer_w_list.append(-1.0)
+        cer_w_list.append(-1.0)
+print(wer_w_list, cer_w_list)
+print("average_wer_per_class")
+print(*wer_w_list, sep='\n')
+print("average_cer_per_class")
+print(*cer_w_list, sep='\n')
