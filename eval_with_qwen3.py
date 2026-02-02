@@ -80,9 +80,7 @@ if to_process:
                 audio=test_record['audio']['path'],
                 language="English",
             )
-            text = results[0].text
-
-            pred_str = normalizer(text.strip())
+            pred_str = normalizer(results[0].text.strip())
             label_str = normalizer(reference_text)
 
             lab = test_record['severity']
