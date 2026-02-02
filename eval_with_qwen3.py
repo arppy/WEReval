@@ -74,13 +74,12 @@ if to_process:
         for idx, test_record in enumerate(to_process):
             orig_sr = test_record["audio"]["sampling_rate"]
             reference_text = test_record["sentence"]
-            severity = test_record["severity"]
 
-            results = model.transcribe(
+            transcription = model.transcribe(
                 audio=test_record['audio']['path'],
                 language="English",
             )
-            pred_str = normalizer(results[0].text.strip())
+            pred_str = normalizer(transcription[0].text.strip())
             label_str = normalizer(reference_text)
 
             lab = test_record['severity']
