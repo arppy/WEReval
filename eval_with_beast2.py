@@ -13,6 +13,7 @@ import params
 
 ERROR_STR = "[ERROR]"
 TIMEOUT_STR = "[TIMEOUT]"
+MISSING_STR = "[MISSING]"
 
 def launch_browser():
     playwright_instance = sync_playwright().start()
@@ -61,7 +62,8 @@ if output_file.exists():
     with open(output_file, mode='r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            existing_results[row["file_path"]] = row
+            file_name = Path(row["file_path"]).name
+            existing_results[file_name] = row
     print(f"Loaded {len(existing_results)} existing results from {output_file}")
 else:
     print("No existing results. Starting fresh.")
@@ -70,9 +72,10 @@ else:
 # ----------------------------
 to_process = []
 for i, fp in enumerate(file_paths):
-    fp_str = str(fp)
+    fp_str = Path(str(fp)).name
     existing = existing_results.get(fp_str)
-    if existing is None or existing["transcription"] == TIMEOUT_STR or existing["transcription"] == ERROR_STR:
+    if (existing is None or existing["transcription"] == TIMEOUT_STR or
+            existing["transcription"] == ERROR_STR or existing["transcription"] == MISSING_STR):
         to_process.append(fp)
 print(f"Files to process/retry: {len(to_process)}")
 
@@ -82,8 +85,9 @@ print(f"Files to process/retry: {len(to_process)}")
 if to_process:
     try:
         p_ctx, browser = launch_browser()
-        for idx, audio_file_name in enumerate(to_process):
-            audio_file = str(audio_file_name)
+        for idx, file_path in enumerate(to_process):
+            audio_file = str(file_path)
+            audio_file_name = Path(str(audio_file)).name
             label_str_orig, lab = file_to_info[audio_file]
             label_str = normalizer(label_str_orig)
             pred_str = None
@@ -92,13 +96,14 @@ if to_process:
             file_size_mb = Path(audio_file).stat().st_size / (1024 * 1024)
             duration = max(file_size_mb * 10, 10.0)  # At least 10 seconds
             # Set dynamic timeout: 3x duration + 30s buffer, clamped between 60s and 600s
-            timeout_seconds = max(60, min(600, int(3 * duration + 30)))
+            timeout_seconds = max(90, min(600, int(3 * duration + 30)))
             timeout = timeout_seconds * 1000
             try:
                 page = browser.new_page()
-                page.goto("https://phon.nytud.hu/beast2")
+                page.goto("https://phon.nytud.hu/beast2", timeout=120000)
                 for attempt in range(2):  # Try up to 2 times
                     try:
+                        page.wait_for_selector("#component-2    ", state="visible", timeout=120000)
                         # 1. Clear if needed (optional)
                         page.click("#component-4")
                         # 2. Upload
@@ -142,7 +147,8 @@ if to_process:
                     word_N = char_N = 0
 
                 # Update in-memory results
-                existing_results[audio_file] = {
+
+                existing_results[audio_file_name] = {
                     "file_path": audio_file,
                     "class_label": str(lab),
                     "expected_text": label_str,
@@ -154,7 +160,7 @@ if to_process:
                 }
             except Exception as e:
                 print(f"❗ Error processing {audio_file}: {e}")
-                existing_results[audio_file] = {
+                existing_results[audio_file_name] = {
                     "file_path": audio_file,
                     "class_label": str(lab),
                     "expected_text": label_str,
@@ -212,11 +218,11 @@ with open(output_file, mode='w', newline='', encoding='utf-8') as f:
     ])
     # Write in original file order
     for fp in file_paths:
-        fp_str = str(fp)
+        fp_str = Path(str(fp)).name
         row = existing_results.get(fp_str)
         if row is None:
             # Fallback (shouldn't happen if logic is correct)
-            writer.writerow([fp_str, "", "", "[MISSING]", -1, -1, 0, 0, "missing"])
+            writer.writerow([fp_str, "", "", MISSING_STR, -1, -1, 0, 0, "missing"])
         else:
             writer.writerow([
                 row["file_path"],

@@ -55,6 +55,9 @@ for json_file in Path(args.json_files_path).iterdir():
             with open(json_file, 'r') as f:
                 data = json.load(f)
             pred_str = normalizer(data['transcription'])
+            if not pred_str :
+                print(f"Empty transcription field in {json_file.name}")
+                continue
             json_wav_path = str(Path(args.wav_dir) / json_file.stem)
             if json_wav_path in file_to_info:
                 label_str_orig, lab = file_to_info[json_wav_path]
@@ -63,7 +66,7 @@ for json_file in Path(args.json_files_path).iterdir():
                 char_N = len(label_str.replace(" ", ""))
                 wer = metric_wer.compute(predictions=[pred_str], references=[label_str])
                 cer = metric_cer.compute(predictions=[pred_str], references=[label_str])
-                all_wer_per_class[lab].extend([wer])  # Add the current batch's WERs to the list
+                all_    wer_per_class[lab].extend([wer])  # Add the current batch's WERs to the list
                 all_wN_per_class[lab].extend([word_N])  # Add the current batch's WERs to the list
                 all_cer_per_class[lab].extend([cer])  # Add the current batch's CERs to the list
                 all_cN_per_class[lab].extend([char_N])  # Add the current batch's CERs to the list
