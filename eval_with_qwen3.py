@@ -32,8 +32,12 @@ model = Qwen3ASRModel.from_pretrained(
     max_new_tokens=1024, # Maximum number of tokens to generate. Set a larger value for long audio input.
 )
 
-mapping_path = os.path.join(os.path.dirname("imports/"), "english.json")
-english_spelling_mapping = json.load(open(mapping_path))
+if args.dataset in params.hungarian_datasets :
+    lang = "Hungarian"
+else :
+    lang = "English"
+    mapping_path = os.path.join(os.path.dirname("imports/"), "english.json")
+    english_spelling_mapping = json.load(open(mapping_path))
 
 dataset_testds = load_dataset_for_ASR_without_prepare(args.dataset, params.TEST_DYSARTHRIC_SPEAKERS, args.wav_dir, True)
 
@@ -77,7 +81,7 @@ if to_process:
 
             transcription = model.transcribe(
                 audio=test_record['audio']['path'],
-                language="English",
+                language=lang,
             )
             pred_str = normalizer(transcription[0].text.strip())
             label_str = normalizer(reference_text)

@@ -66,7 +66,7 @@ for json_file in Path(args.json_files_path).iterdir():
                 char_N = len(label_str.replace(" ", ""))
                 wer = metric_wer.compute(predictions=[pred_str], references=[label_str])
                 cer = metric_cer.compute(predictions=[pred_str], references=[label_str])
-                all_    wer_per_class[lab].extend([wer])  # Add the current batch's WERs to the list
+                all_wer_per_class[lab].extend([wer])  # Add the current batch's WERs to the list
                 all_wN_per_class[lab].extend([word_N])  # Add the current batch's WERs to the list
                 all_cer_per_class[lab].extend([cer])  # Add the current batch's CERs to the list
                 all_cN_per_class[lab].extend([char_N])  # Add the current batch's CERs to the list
