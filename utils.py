@@ -100,7 +100,7 @@ def prepare_Torgo_dataset(batch, feature_extractor, tokenizer=None, augmentor=No
     if 'C' in uid:
         batch['severity'] = 0
     else:
-        batch['severity'] = params.TORGO_dys_speaker_dict[uid]
+        batch['severity'] = params.dys_speaker_dict[params.TORGO]
     # encode target text to label ids
     batch['uid'] = uid
     batch['sentence'] = batch['transcription']
@@ -342,13 +342,8 @@ def get_TrogoGenerated_as_list(data_dir) :
             labels.append(Torgo_label_to_idx[uid])
     return file_paths, texts, labels
 
-
-
 def get_UASpeech_as_list(speakers, data_dir) :
-    all_dys_spks = ["F05", "M08", "M09", "M10", "M14", "M05", "M11", "F04", "M07", "F02", "M16", "M04", "F03",
-                         "M12", "M01"]
-    all_dyslabels = [1, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4]
-    dys_speaker_dict = dict(zip(all_dys_spks, all_dyslabels))
+    dys_speaker_dict = params.dys_speaker_dict[params.UASPEECH]
     file_paths = []
     texts = []
     labels = []
@@ -400,10 +395,7 @@ class UASpeech(torch.utils.data.Dataset):
         self.processor = processor
         self.tokenizer = tokenizer
         self.torch_dtype = torch_dtype
-        self.all_dys_spks = ["M09", "M14", "M10", "M08", "F05", "M05", "M11", "F04", "M07", "F02", "M16", "M04", "F03",
-                        "M12", "M01"]
-        self.all_dyslabels = [4, 4, 4, 4, 4, 3, 3, 3, 2, 2, 2, 1, 1, 1, 1]
-        self.dys_speaker_dict = dict(zip(self.all_dys_spks, self.all_dyslabels))
+        self.dys_speaker_dict = params.dys_speaker_dict[params.UASPEECH]
         self.file_paths = []
         self.labels = []
         for speaker_folder in os.listdir(data_dir):
